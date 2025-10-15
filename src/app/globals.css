@@ -1,26 +1,219 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0); /* Fondo oscuro principal */
+  --foreground: oklch(0.985 0 0); /* Texto claro */
+  --card: oklch(0.205 0 0); /* Cards oscuros */
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Forzar fondo oscuro en tema dark */
+.dark body,
+.dark .bg-gray-50,
+.dark .bg-white {
+  background-color: #0F172A !important;
+}
+
+.dark .bg-white {
+  background-color: #1E293B !important;
+}
+
+.dark .text-gray-900 {
+  color: #F1F5F9 !important;
+}
+
+.dark .text-gray-700 {
+  color: #CBD5E1 !important;
+}
+
+.dark .text-gray-500 {
+  color: #94A3B8 !important;
+}
+
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: #334155 !important;
+}
+
+.dark nav {
+  background-color: #1E293B !important;
+  border-color: #334155 !important;
+}
+
+/* Tema Colorido/Alegre */
+.theme-colorful {
+  /* Fondos cálidos y acogedores */
+  --background: oklch(0.98 0.01 60); /* Crema suave #FEF7F0 */
+  --foreground: oklch(0.25 0 0);
+  --card: oklch(1 0 0); /* Blanco puro para cards */
+  --card-foreground: oklch(0.25 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0 0);
+  
+  /* Primary usa azul de expedientes */
+  --primary: oklch(0.57 0.21 252); /* Azul #3B82F6 */
+  --primary-foreground: oklch(1 0 0);
+  
+  /* Secondary con rosa suave */
+  --secondary: oklch(0.97 0.02 10); /* Rosa pálido */
+  --secondary-foreground: oklch(0.3 0 0);
+  
+  /* Muted con lavanda */
+  --muted: oklch(0.96 0.02 280); /* Lavanda #F5F3FF */
+  --muted-foreground: oklch(0.45 0 0);
+  
+  /* Accent con crema */
+  --accent: oklch(0.97 0.01 50);
+  --accent-foreground: oklch(0.3 0 0);
+  
+  /* Destructive rojo de audiencias */
+  --destructive: oklch(0.58 0.22 25); /* Rojo #EF4444 */
+  
+  /* Bordes suaves rosa/crema */
+  --border: oklch(0.95 0.01 15); /* Rosa suave */
+  --input: oklch(0.95 0.01 15);
+  --ring: oklch(0.7 0.15 252); /* Azul para focus */
+  
+  /* Charts con colores vibrantes */
+  --chart-1: oklch(0.57 0.21 252); /* Azul expedientes */
+  --chart-2: oklch(0.65 0.21 130); /* Verde clientes */
+  --chart-3: oklch(0.69 0.22 42); /* Naranja tareas */
+  --chart-4: oklch(0.63 0.19 295); /* Morado documentos */
+  --chart-5: oklch(0.72 0.20 70); /* Amarillo facturación */
+}
+
+/* Variables adicionales para módulos coloridos */
+:root.theme-colorful {
+  --color-expedientes: #3B82F6;
+  --color-tareas: #F97316;
+  --color-clientes: #10B981;
+  --color-audiencias: #EF4444;
+  --color-documentos: #8B5CF6;
+  --color-facturacion: #F59E0B;
+  --color-ia-legal: #06B6D4;
+  --color-reportes: #6366F1;
+}
+
+/* Fondo crema en tema colorido */
+.theme-colorful body {
+  background-color: #FEF7F0 !important;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Transición suave entre temas */
+  body, .bg-background, .bg-card, .text-foreground {
+    @apply transition-colors duration-300;
+  }
 }

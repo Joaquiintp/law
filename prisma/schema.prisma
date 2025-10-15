@@ -1,0 +1,598 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Modelos para ERP Jurídico
+
+// Modelo para Multi-tenant (Estudios Jurídicos)
+model Estudio {
+  id            String   @id @default(cuid())
+  nombre        String
+  razonSocial   String?
+  cuit          String?  @unique
+  email         String?
+  telefono      String?
+  direccion     String?
+  ciudad        String?
+  provincia     String?
+  codigoPostal  String?
+  
+  // Estado del estudio
+  activo        Boolean  @default(true)
+  fechaAlta     DateTime @default(now())
+  fechaBaja     DateTime?
+  
+  // 🧩 Paquetes XenovaLaw
+  paquete       PaqueteXenova @default(BASE) // BASE, PRO, FULL
+  fechaVencimiento DateTime? // Si null = sin vencimiento activo
+  
+  // 💾 Almacenamiento
+  almacenamientoGB Int @default(5) // Base según paquete: BASE=5GB, PRO=25GB, FULL=100GB
+  almacenamientoExtra Int @default(0) // GB adicionales contratados
+  almacenamientoUsadoMB Int @default(0) // MB utilizados actualmente
+  
+  // 🤖 Add-On IA Legal
+  iaLegalActivo Boolean  @default(false)
+  iaLegalTipo   String?  // "FIJO" o "CONSUMO"
+  iaLegalFechaActivacion DateTime?
+  iaLegalFechaVencimiento DateTime?
+  iaLegalMaxConsultas Int @default(0) // Si tipo FIJO
+  iaLegalConsultasUsadas Int @default(0)
+  
+  // 👥 Límites por Paquete
+  maxUsuarios   Int @default(5) // BASE=5, PRO=20, FULL=ilimitado(-1)
+  usuariosActivos Int @default(0) // Contador de usuarios activos
+  
+  // 🔐 Funcionalidades según Paquete
+  // BASE
+  gestionExpedientes Boolean @default(true)
+  gestionClientes Boolean @default(true)
+  generacionPDF Boolean @default(true)
+  agendaProcesal Boolean @default(true)
+  portalCliente Boolean @default(true)
+  rolesUsuario Boolean @default(true)
+  
+  // PRO (incluye todo BASE más...)
+  whatsappAPI Boolean @default(false)
+  emailAPI Boolean @default(false)
+  plantillasInteligentes Boolean @default(false)
+  portalClienteAvanzado Boolean @default(false)
+  agendaIntegrada Boolean @default(false) // Google Calendar/Outlook
+  facturacionElectronica Boolean @default(false) // SDK AFIP
+  firmaDigital Boolean @default(false)
+  dashboardFinanzas Boolean @default(false)
+  
+  // FULL (incluye todo PRO más...)
+  automatizacionCompleta Boolean @default(false)
+  integracionJudicial Boolean @default(false)
+  reportesBI Boolean @default(false)
+  multiSede Boolean @default(false)
+  seguridadAvanzada Boolean @default(false) // 2FA, auditoría
+  personalizacionWorkflows Boolean @default(false)
+  
+  // Relaciones
+  usuarios      User[]
+  clientes      Cliente[]
+  expedientes   Expediente[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([activo])
+  @@index([paquete])
+  @@index([iaLegalActivo])
+}
+
+// Enum para Paquetes XenovaLaw
+enum PaqueteXenova {
+  BASE  // 🟢 Digitalización Jurídica
+  PRO   // 🟡 Automatización Legal
+  FULL  // 🔵 Operación Inteligente
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole        @default(ABOGADO)
+  
+  // Multi-tenant
+  estudioId     String?
+  estudio       Estudio?        @relation(fields: [estudioId], references: [id], onDelete: Cascade)
+  
+  // Estado
+  activo        Boolean         @default(true)
+  
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Relaciones jurídicas
+  expedientesAsignados    Expediente[] @relation("ExpedienteResponsable")
+  expedientesCreados      Expediente[] @relation("ExpedienteCreador")
+  documentosCreados       Documento[]
+  audienciasAsignadas     Audiencia[]
+  tareasAsignadas         Tarea[]
+  actividades             ActividadLog[]
+  consultasIA             ConsultaIA[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([estudioId])
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Cliente {
+  id                String @id @default(cuid())
+  razonSocial       String // Nombre completo o razón social (unificado)
+  email             String? @unique
+  telefono          String?
+  documento         String @unique @default("")
+  tipoDocumento     TipoDocumento @default(DNI)
+  
+  // Multi-tenant
+  estudioId         String
+  estudio           Estudio @relation(fields: [estudioId], references: [id], onDelete: Cascade)
+  
+  // Campos CRM
+  tipoPersona       TipoPersona @default(FISICA)
+  estado            EstadoCliente @default(ACTIVO)
+  direccion         String?
+  cuitCuil          String? @unique
+  fechaCreacion     DateTime @default(now())
+  
+  // Datos bancarios
+  cbu               String?
+  banco             String?
+  
+  // Campos adicionales
+  domicilio         String?
+  fechaNacimiento   DateTime?
+  cuit              String? @unique
+  condicionIva      CondicionIva?
+  
+  // Relaciones
+  expedientes       Expediente[]
+  facturas          Factura[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([documento])
+  @@index([email])
+  @@index([cuitCuil])
+  @@index([estudioId])
+}
+
+model Expediente {
+  id                String @id @default(cuid())
+  numero            String @unique
+  caratula          String
+  fuero             Fuero
+  materia           Materia
+  juzgado           String?
+  secretaria        String?
+  estado            EstadoExpediente @default(ACTIVO)
+  
+  // Multi-tenant
+  estudioId         String
+  estudio           Estudio @relation(fields: [estudioId], references: [id], onDelete: Cascade)
+  
+  // Fechas importantes
+  fechaInicio       DateTime @default(now())
+  fechaCierre       DateTime?
+  fechaProximaAudiencia DateTime?
+  
+  // Descripción y observaciones
+  descripcion       String?
+  observaciones     String?
+  
+  // Relaciones
+  clienteId         String
+  cliente           Cliente @relation(fields: [clienteId], references: [id])
+  responsableId     String
+  responsable       User @relation("ExpedienteResponsable", fields: [responsableId], references: [id])
+  creadorId         String
+  creador           User @relation("ExpedienteCreador", fields: [creadorId], references: [id])
+  
+  // Elementos relacionados
+  documentos        Documento[]
+  audiencias        Audiencia[]
+  tareas            Tarea[]
+  honorarios        Honorario[]
+  consultasIA       ConsultaIA[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([numero])
+  @@index([estado])
+  @@index([fuero])
+  @@index([estudioId])
+}
+
+model Documento {
+  id              String @id @default(cuid())
+  nombre          String
+  tipoDocumento   TipoDocumentoJuridico
+  version         Int @default(1)
+  rutaArchivo     String
+  tamaño          Int
+  extension       String
+  
+  // Metadatos
+  descripcion     String?
+  tags            String?
+  
+  // Relaciones
+  expedienteId    String
+  expediente      Expediente @relation(fields: [expedienteId], references: [id])
+  creadorId       String
+  creador         User @relation(fields: [creadorId], references: [id])
+  consultasIA     ConsultaIA[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([expedienteId])
+  @@index([tipoDocumento])
+}
+
+model Audiencia {
+  id            String @id @default(cuid())
+  fecha         DateTime
+  hora          String
+  tipo          TipoAudiencia
+  lugar         String?
+  modalidad     ModalidadAudiencia @default(PRESENCIAL)
+  
+  // Detalles
+  descripcion   String?
+  resultado     String?
+  estado        EstadoAudiencia @default(PROGRAMADA)
+  
+  // Relaciones
+  expedienteId  String
+  expediente    Expediente @relation(fields: [expedienteId], references: [id])
+  responsableId String
+  responsable   User @relation(fields: [responsableId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([fecha])
+  @@index([estado])
+}
+
+model Tarea {
+  id            String @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  prioridad     Prioridad @default(MEDIA)
+  estado        EstadoTarea @default(PENDIENTE)
+  
+  // Fechas
+  fechaVencimiento DateTime
+  fechaCompletado  DateTime?
+  
+  // Relaciones
+  expedienteId  String
+  expediente    Expediente @relation(fields: [expedienteId], references: [id])
+  asignadoId    String
+  asignado      User @relation(fields: [asignadoId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([fechaVencimiento])
+  @@index([estado])
+}
+
+model Honorario {
+  id            String @id @default(cuid())
+  concepto      String
+  monto         Float
+  moneda        Moneda @default(ARS)
+  fechaServicio DateTime
+  estado        EstadoHonorario @default(PENDIENTE)
+  
+  // Relaciones
+  expedienteId  String
+  expediente    Expediente @relation(fields: [expedienteId], references: [id])
+  
+  // Facturación
+  facturaId     String?
+  factura       Factura? @relation(fields: [facturaId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Factura {
+  id              String @id @default(cuid())
+  numero          String @unique
+  fecha           DateTime @default(now())
+  fechaVencimiento DateTime
+  subtotal        Float
+  impuestos       Float
+  total          Float
+  moneda         Moneda @default(ARS)
+  estado         EstadoFactura @default(PENDIENTE)
+  
+  // Datos AFIP
+  puntoVenta     Int?
+  tipoComprobante TipoComprobante?
+  cae            String?
+  fechaVencimientoCae DateTime?
+  
+  // Relaciones
+  clienteId      String
+  cliente        Cliente @relation(fields: [clienteId], references: [id])
+  honorarios     Honorario[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActividadLog {
+  id          String @id @default(cuid())
+  accion      String
+  descripcion String
+  entidad     String
+  entidadId   String
+  
+  // Usuario que realizó la acción
+  userId      String
+  user        User @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+  
+  @@index([createdAt])
+  @@index([entidad, entidadId])
+}
+
+model ConsultaIA {
+  id          String @id @default(cuid())
+  tipo        TipoConsultaIA
+  pregunta    String
+  respuesta   String?
+  contexto    String? // Información adicional proporcionada
+  estado      EstadoConsultaIA @default(PROCESANDO)
+  
+  // Metadatos
+  tokens      Int?
+  modelo      String?
+  confianza   Float?
+  
+  // Relaciones
+  usuarioId   String
+  usuario     User @relation(fields: [usuarioId], references: [id])
+  
+  expedienteId String?
+  expediente   Expediente? @relation(fields: [expedienteId], references: [id])
+  
+  documentoId  String?
+  documento    Documento? @relation(fields: [documentoId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([usuarioId])
+  @@index([tipo])
+  @@index([createdAt])
+}
+
+// Enums
+
+enum UserRole {
+  ADMIN       // Administrador del ERP (gestión interna)
+  DUENO       // Dueño del estudio (cuenta principal del estudio)
+  ABOGADO     // Abogado del estudio
+  SECRETARIO  // Secretario del estudio
+}
+
+enum TipoDocumento {
+  DNI
+  CUIT
+  CUIL
+  PASAPORTE
+  LC
+  LE
+}
+
+enum CondicionIva {
+  RESPONSABLE_INSCRIPTO
+  MONOTRIBUTO
+  EXENTO
+  CONSUMIDOR_FINAL
+}
+
+enum Fuero {
+  CIVIL
+  COMERCIAL
+  PENAL
+  LABORAL
+  FAMILIA
+  CONTENCIOSO_ADMINISTRATIVO
+  FEDERAL
+}
+
+enum Materia {
+  CIVIL_CONTRACTUAL
+  CIVIL_EXTRACONTRACTUAL
+  COMERCIAL
+  LABORAL
+  PENAL
+  FAMILIA_DIVORCIO
+  FAMILIA_ALIMENTOS
+  SUCESIONES
+  ADMINISTRATIVO
+  TRIBUTARIO
+  INMOBILIARIO
+}
+
+enum EstadoExpediente {
+  ACTIVO
+  SUSPENDIDO
+  CERRADO
+  ARCHIVADO
+}
+
+enum TipoDocumentoJuridico {
+  DEMANDA
+  CONTESTACION
+  ESCRITO
+  SENTENCIA
+  RESOLUCION
+  ACTA
+  CONTRATO
+  PODER
+  CEDULA_NOTIFICACION
+  DICTAMEN
+  PERICIA
+  OTRO
+}
+
+enum TipoAudiencia {
+  CONCILIACION
+  PRUEBA
+  ALEGATOS
+  VISTA_CAUSA
+  MEDIACION
+  OTRA
+}
+
+enum ModalidadAudiencia {
+  PRESENCIAL
+  VIRTUAL
+  MIXTA
+}
+
+enum EstadoAudiencia {
+  PROGRAMADA
+  REALIZADA
+  SUSPENDIDA
+  CANCELADA
+}
+
+enum Prioridad {
+  BAJA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum EstadoTarea {
+  PENDIENTE
+  EN_PROGRESO
+  COMPLETADA
+  CANCELADA
+}
+
+enum EstadoHonorario {
+  PENDIENTE
+  FACTURADO
+  COBRADO
+}
+
+enum Moneda {
+  ARS
+  USD
+  EUR
+}
+
+enum EstadoFactura {
+  BORRADOR
+  PENDIENTE
+  ENVIADA
+  PAGADA
+  VENCIDA
+  ANULADA
+}
+
+enum TipoComprobante {
+  FACTURA_A
+  FACTURA_B
+  FACTURA_C
+  NOTA_CREDITO_A
+  NOTA_CREDITO_B
+  NOTA_CREDITO_C
+  NOTA_DEBITO_A
+  NOTA_DEBITO_B
+  NOTA_DEBITO_C
+}
+
+enum TipoPersona {
+  FISICA
+  JURIDICA
+}
+
+enum EstadoCliente {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
+
+enum TipoConsultaIA {
+  CHAT_GENERAL
+  ANALISIS_DOCUMENTO
+  ANALISIS_EXPEDIENTE
+  GENERACION_ESCRITO
+  BUSQUEDA_JURISPRUDENCIA
+  REVISION_CONTRATO
+  CONSULTA_LEGAL
+  ESTRATEGIA_CASO
+}
+
+enum EstadoConsultaIA {
+  PROCESANDO
+  COMPLETADA
+  ERROR
+  CANCELADA
+}
