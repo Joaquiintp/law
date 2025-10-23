@@ -176,7 +176,7 @@ export default function ExpedienteForm({ clientes, usuarios }: ExpedienteFormPro
                             <SelectContent>
                               {clientes.map((cliente) => (
                                 <SelectItem key={cliente.id} value={cliente.id}>
-                                  {cliente.nombre} {cliente.apellido} - {cliente.documento}
+                                  {cliente.razonSocial} - {cliente.documento}
                                 </SelectItem>
                               ))}
                             </SelectContent>

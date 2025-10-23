@@ -107,8 +107,8 @@ export async function GET(
             cliente: {
               select: {
                 id: true,
-                nombre: true,
-                apellido: true,
+                razonSocial: true,
+                
                 email: true,
                 telefono: true
               }
@@ -176,8 +176,8 @@ export async function PUT(
           include: {
             cliente: {
               select: {
-                nombre: true,
-                apellido: true
+                razonSocial: true,
+                
               }
             }
           }

@@ -42,7 +42,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   CheckSquare,
-  Clock,
   Plus,
   ChevronDown,
   Edit,
@@ -94,7 +93,8 @@ interface ArchivoTarea {
 
 interface Tarea {
   id: string
-  estado: 'PENDIENTE' | 'HECHO'
+  tipo?: 'PROCESAL' | 'EXTRA_PROCESAL' | 'AUDITORIA'
+  estado: 'HECHO' | 'PENDIENTE' | 'IMPORTANTE'
   accion: string
   fecha: Date
   hora: string
@@ -124,6 +124,7 @@ export default function TareasExpedienteView({
   const [tareasExtraProcesales, setTareasExtraProcesales] = useState<Tarea[]>([])
   const [tareasAuditoria, setTareasAuditoria] = useState<Tarea[]>([])
   const [selectedTarea, setSelectedTarea] = useState<Tarea | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showArchivosDialog, setShowArchivosDialog] = useState(false)
   const [showNuevaTareaDialog, setShowNuevaTareaDialog] = useState(false)
@@ -189,6 +190,92 @@ export default function TareasExpedienteView({
   
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Cargar tareas desde la API
+  useEffect(() => {
+    const cargarTareas = async () => {
+      try {
+        setIsLoading(true)
+        console.log('🔍 Cargando tareas para expediente:', expedienteId)
+        const response = await fetch(`/api/tareas?expedienteId=${expedienteId}`)
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }))
+          console.error('❌ Error al cargar tareas:', response.status, errorData)
+          
+          // Si es error de autenticación, no mostrar error (el usuario será redirigido)
+          if (response.status === 401) {
+            console.log('⚠️ Usuario no autenticado')
+            return
+          }
+          
+          throw new Error(errorData.error || 'Error al cargar tareas')
+        }
+        
+        const tareas = await response.json()
+        console.log('✅ Tareas cargadas:', tareas.length)
+        
+        // Separar tareas por tipo (asumiendo que tienes un campo 'tipo' en la tarea)
+        // Si no existe, tendrás que agregar lógica para clasificarlas
+        const procesales: Tarea[] = []
+        const extraProcesales: Tarea[] = []
+        const auditorias: Tarea[] = []
+        
+        tareas.forEach((tarea: any) => {
+          // Mapear la tarea de la API al formato del componente
+          const tareaLocal: Tarea = {
+            id: tarea.id,
+            tipo: tarea.tipo as 'PROCESAL' | 'EXTRA_PROCESAL' | 'AUDITORIA',
+            estado: tarea.estado as 'HECHO' | 'PENDIENTE' | 'IMPORTANTE',
+            accion: tarea.titulo,
+            fecha: new Date(tarea.fechaVencimiento),
+            hora: new Date(tarea.fechaVencimiento).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+            responsable: tarea.asignado?.name || 'Sin asignar',
+            observaciones: tarea.descripcion,
+            observacionesDetalladas: [],
+            archivosAsociados: [],
+            destacado: false
+          }
+          
+          // Clasificar por tipo de tarea
+          switch (tarea.tipo) {
+            case 'PROCESAL':
+              procesales.push(tareaLocal)
+              break
+            case 'EXTRA_PROCESAL':
+              extraProcesales.push(tareaLocal)
+              break
+            case 'AUDITORIA':
+              auditorias.push(tareaLocal)
+              break
+            default:
+              procesales.push(tareaLocal) // Por defecto van a procesales
+          }
+        })
+        
+        console.log('📋 Tareas procesales:', procesales.length)
+        console.log('📋 Tareas extra-procesales:', extraProcesales.length)
+        console.log('📋 Tareas de auditoría:', auditorias.length)
+        setTareasProcesales(procesales)
+        setTareasExtraProcesales(extraProcesales)
+        setTareasAuditoria(auditorias)
+        setTareasExtraProcesales(extraProcesales)
+        setTareasAuditoria(auditorias)
+      } catch (error) {
+        console.error('Error al cargar tareas:', error)
+        // No bloquear la UI, simplemente dejar las tareas vacías
+        setTareasProcesales([])
+        setTareasExtraProcesales([])
+        setTareasAuditoria([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    if (expedienteId) {
+      cargarTareas()
+    }
+  }, [expedienteId])
+
   // Calcular días desde último movimiento
   const calcularDiasDesdeUltimoMovimiento = () => {
     if (!ultimoMovimiento) return 0
@@ -231,45 +318,145 @@ export default function TareasExpedienteView({
     setShowNuevaTareaDialog(true)
   }
 
-  const handleAgregarTarea = (nuevaTarea: Tarea) => {
-    switch (tipoTareaDialog) {
-      case 'PROCESAL':
-        setTareasProcesales([...tareasProcesales, nuevaTarea])
-        break
-      case 'EXTRA_PROCESAL':
-        setTareasExtraProcesales([...tareasExtraProcesales, nuevaTarea])
-        break
-      case 'AUDITORIA':
-        setTareasAuditoria([...tareasAuditoria, nuevaTarea])
-        break
+  const handleAgregarTarea = async (nuevaTarea: Tarea) => {
+    try {
+      // Encontrar el usuario asignado
+      const usuarioAsignado = usuariosDisponibles.find(u => u.nombre === nuevaTarea.responsable)
+      
+      if (!usuarioAsignado) {
+        console.error('Usuario no encontrado')
+        return
+      }
+
+      // Crear tarea en la API
+      const response = await fetch('/api/tareas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          titulo: nuevaTarea.accion,
+          descripcion: nuevaTarea.observaciones,
+          estado: nuevaTarea.estado,
+          expedienteId: expedienteId,
+          asignadoId: usuarioAsignado.id,
+          fechaVencimiento: nuevaTarea.fecha.toISOString(),
+          prioridad: 'MEDIA'
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }))
+        console.error('❌ Error al crear tarea:', response.status, errorData)
+        throw new Error(errorData.error || `Error al crear tarea (${response.status})`)
+      }
+
+      const tareaCreada = await response.json()
+      console.log('✅ Tarea creada exitosamente:', tareaCreada)
+      
+      // Mapear la tarea creada al formato local
+      const tareaLocal: Tarea = {
+        id: tareaCreada.id,
+        estado: tareaCreada.estado as 'HECHO' | 'PENDIENTE' | 'IMPORTANTE',
+        accion: tareaCreada.titulo,
+        fecha: new Date(tareaCreada.fechaVencimiento),
+        hora: new Date(tareaCreada.fechaVencimiento).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+        responsable: tareaCreada.asignado?.name || nuevaTarea.responsable,
+        observaciones: tareaCreada.descripcion,
+        observacionesDetalladas: nuevaTarea.observacionesDetalladas || [],
+        archivosAsociados: [],
+        destacado: false
+      }
+
+      // Agregar a la lista correspondiente
+      switch (tipoTareaDialog) {
+        case 'PROCESAL':
+          setTareasProcesales([...tareasProcesales, tareaLocal])
+          break
+        case 'EXTRA_PROCESAL':
+          setTareasExtraProcesales([...tareasExtraProcesales, tareaLocal])
+          break
+        case 'AUDITORIA':
+          setTareasAuditoria([...tareasAuditoria, tareaLocal])
+          break
+      }
+    } catch (error) {
+      console.error('❌ Error al agregar tarea:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      alert(`Error al crear la tarea: ${errorMessage}`)
     }
   }
 
-  const handleEliminarTarea = () => {
+  const handleEliminarTarea = async () => {
     if (!selectedTarea) return
 
-    setTareasProcesales(tareasProcesales.filter(t => t.id !== selectedTarea.id))
-    setTareasExtraProcesales(tareasExtraProcesales.filter(t => t.id !== selectedTarea.id))
-    setTareasAuditoria(tareasAuditoria.filter(t => t.id !== selectedTarea.id))
-    
-    setShowDeleteDialog(false)
-    setSelectedTarea(null)
+    try {
+      const response = await fetch(`/api/tareas/${selectedTarea.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar tarea')
+      }
+
+      // Eliminar del estado local
+      setTareasProcesales(tareasProcesales.filter(t => t.id !== selectedTarea.id))
+      setTareasExtraProcesales(tareasExtraProcesales.filter(t => t.id !== selectedTarea.id))
+      setTareasAuditoria(tareasAuditoria.filter(t => t.id !== selectedTarea.id))
+      
+      setShowDeleteDialog(false)
+      setSelectedTarea(null)
+    } catch (error) {
+      console.error('Error al eliminar tarea:', error)
+      alert('Error al eliminar la tarea. Por favor, intenta de nuevo.')
+    }
   }
 
-  const handleToggleEstado = (tarea: Tarea, tipo: 'PROCESAL' | 'EXTRA_PROCESAL' | 'AUDITORIA') => {
-    const nuevoEstado: 'PENDIENTE' | 'HECHO' = tarea.estado === 'PENDIENTE' ? 'HECHO' : 'PENDIENTE'
-    const tareaActualizada: Tarea = { ...tarea, estado: nuevoEstado }
+  const handleToggleEstado = async (tarea: Tarea, tipo: 'PROCESAL' | 'EXTRA_PROCESAL' | 'AUDITORIA') => {
+    // Ciclo de estados: PENDIENTE -> IMPORTANTE -> HECHO -> PENDIENTE
+    let nuevoEstado: 'HECHO' | 'PENDIENTE' | 'IMPORTANTE'
+    
+    if (tarea.estado === 'PENDIENTE') {
+      nuevoEstado = 'IMPORTANTE'
+    } else if (tarea.estado === 'IMPORTANTE') {
+      nuevoEstado = 'HECHO'
+    } else {
+      nuevoEstado = 'PENDIENTE'
+    }
+    
+    try {
+      // Actualizar en la API
+      const response = await fetch(`/api/tareas/${tarea.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          estado: nuevoEstado
+        }),
+      })
 
-    switch (tipo) {
-      case 'PROCESAL':
-        setTareasProcesales(tareasProcesales.map(t => t.id === tarea.id ? tareaActualizada : t))
-        break
-      case 'EXTRA_PROCESAL':
-        setTareasExtraProcesales(tareasExtraProcesales.map(t => t.id === tarea.id ? tareaActualizada : t))
-        break
-      case 'AUDITORIA':
-        setTareasAuditoria(tareasAuditoria.map(t => t.id === tarea.id ? tareaActualizada : t))
-        break
+      if (!response.ok) {
+        throw new Error('Error al actualizar tarea')
+      }
+
+      // Actualizar en el estado local
+      const tareaActualizada: Tarea = { ...tarea, estado: nuevoEstado }
+
+      switch (tipo) {
+        case 'PROCESAL':
+          setTareasProcesales(tareasProcesales.map(t => t.id === tarea.id ? tareaActualizada : t))
+          break
+        case 'EXTRA_PROCESAL':
+          setTareasExtraProcesales(tareasExtraProcesales.map(t => t.id === tarea.id ? tareaActualizada : t))
+          break
+        case 'AUDITORIA':
+          setTareasAuditoria(tareasAuditoria.map(t => t.id === tarea.id ? tareaActualizada : t))
+          break
+      }
+    } catch (error) {
+      console.error('Error al cambiar estado de tarea:', error)
+      alert('Error al actualizar el estado. Por favor, intenta de nuevo.')
     }
   }
 
@@ -530,140 +717,167 @@ export default function TareasExpedienteView({
     onToggleEstado: () => void
     onToggleDestacado: () => void
     onVerDetalle: () => void
-  }) => (
-    <div 
-      className={`grid grid-cols-12 gap-2 p-3 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer ${tarea.destacado ? 'border-yellow-400 bg-yellow-50' : ''}`}
-      onClick={onVerDetalle}
-    >
-      {/* Estado */}
-      <div className="col-span-1 flex items-center">
-        <Badge 
-          className={`cursor-pointer ${tarea.estado === 'HECHO' ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleEstado()
-          }}
-        >
-          {tarea.estado === 'HECHO' ? '✓' : '○'}
-        </Badge>
-      </div>
+  }) => {
+    // Definir colores según el estado
+    const getEstadoColors = () => {
+      switch (tarea.estado) {
+        case 'HECHO':
+          return {
+            bg: 'bg-green-50 hover:bg-green-100',
+            border: 'border-green-200',
+            badge: 'bg-green-500 text-white hover:bg-green-600',
+            text: 'text-green-900',
+            icon: '✓',
+            label: 'Hecho'
+          }
+        case 'PENDIENTE':
+          return {
+            bg: 'bg-orange-50 hover:bg-orange-100',
+            border: 'border-orange-200',
+            badge: 'bg-orange-500 text-white hover:bg-orange-600',
+            text: 'text-orange-900',
+            icon: '○',
+            label: 'Pendiente'
+          }
+        case 'IMPORTANTE':
+          return {
+            bg: 'bg-red-50 hover:bg-red-100',
+            border: 'border-red-200',
+            badge: 'bg-red-500 text-white hover:bg-red-600',
+            text: 'text-red-900',
+            icon: '!',
+            label: 'Importante'
+          }
+        default:
+          return {
+            bg: 'bg-gray-50 hover:bg-gray-100',
+            border: 'border-gray-200',
+            badge: 'bg-gray-500 text-white hover:bg-gray-600',
+            text: 'text-gray-900',
+            icon: '○',
+            label: 'Pendiente'
+          }
+      }
+    }
 
-      {/* Acción */}
-      <div className="col-span-3 flex items-center">
-        <span className="text-sm font-medium truncate">{tarea.accion}</span>
+    const colors = getEstadoColors()
+
+    return (
+      <div className="flex items-start gap-2">
+        {/* Viñeta principal */}
+        <div 
+          className={`flex-1 grid grid-cols-12 gap-2 p-4 border-2 rounded-lg transition-all cursor-pointer ${colors.bg} ${colors.border} ${tarea.destacado ? 'ring-2 ring-yellow-400' : ''}`}
+          onClick={onVerDetalle}
+        >
+          {/* Estado */}
+        <div className="col-span-2 flex items-start pt-1">
+          <Badge 
+            className={`cursor-pointer ${colors.badge} font-semibold px-2 py-1 text-xs whitespace-nowrap`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleEstado()
+            }}
+            title={`Click para cambiar estado`}
+          >
+            <span className="flex items-center gap-1">
+              <span>{colors.icon}</span>
+              <span>{colors.label}</span>
+            </span>
+          </Badge>
+        </div>
+
+      {/* Acción - Permite múltiples líneas */}
+      <div className="col-span-3 flex items-start pt-1">
+        <p className="text-sm font-medium leading-tight line-clamp-2">
+          {tarea.accion}
+        </p>
       </div>
 
       {/* Fecha */}
-      <div className="col-span-2 flex items-center text-sm text-gray-600">
+      <div className="col-span-2 flex items-start pt-1 text-sm text-gray-600 whitespace-nowrap">
         {format(new Date(tarea.fecha), 'dd/MM/yyyy', { locale: es })}
       </div>
 
       {/* Hora */}
-      <div className="col-span-1 flex items-center text-sm text-gray-600">
+      <div className="col-span-1 flex items-start pt-1 text-sm text-gray-600 whitespace-nowrap">
         {tarea.hora}
       </div>
 
       {/* Responsable */}
-      <div className="col-span-2 flex items-center text-sm text-gray-600 truncate">
-        {tarea.responsable}
+      <div className="col-span-2 flex items-start pt-1">
+        <p className="text-sm text-gray-600 leading-tight line-clamp-1 truncate">
+          {tarea.responsable}
+        </p>
       </div>
 
-      {/* Observaciones */}
-      <div className="col-span-2 flex items-center text-sm text-gray-500 truncate">
-        {tarea.observaciones || '-'}
-      </div>
-
-      {/* Opciones */}
-      <div className="col-span-1 flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        {/* Dropdown con opciones */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onArchivos}>
-              <Upload className="h-4 w-4 mr-2" />
-              Archivos asociados ({tarea.archivosAsociados?.length || 0})
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <FileText className="h-4 w-4 mr-2" />
-              Asociar escrito en línea
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <FileText className="h-4 w-4 mr-2" />
-              Vincular con plantilla existente
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onToggleDestacado}>
-              <Star className={`h-4 w-4 mr-2 ${tarea.destacado ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-              {tarea.destacado ? 'Quitar destacado' : 'Destacar este movimiento'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Editar */}
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-          <Edit className="h-4 w-4" />
-        </Button>
-
-        {/* Eliminar */}
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-
-        {/* Enviar */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Send className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>
-              📱 Enviar por WhatsApp
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              📧 Enviar por Email
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Observaciones - Permite múltiples líneas con indicador */}
+      <div className="col-span-2 flex items-start pt-1">
+        {tarea.observaciones ? (
+          <p className="text-sm text-gray-500 leading-tight line-clamp-3" title={tarea.observaciones}>
+            {tarea.observaciones}
+          </p>
+        ) : (
+          <span className="text-sm text-gray-400">-</span>
+        )}
       </div>
     </div>
-  )
+
+    {/* Menú de opciones (3 puntos) - Fuera de la viñeta */}
+    <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+            <Edit className="h-4 w-4 mr-2" />
+            Editar tarea
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchivos(); }}>
+            <Upload className="h-4 w-4 mr-2" />
+            Archivos asociados ({tarea.archivosAsociados?.length || 0})
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <FileText className="h-4 w-4 mr-2" />
+            Asociar escrito en línea
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <FileText className="h-4 w-4 mr-2" />
+            Vincular con plantilla existente
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleDestacado(); }}>
+            <Star className={`h-4 w-4 mr-2 ${tarea.destacado ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+            {tarea.destacado ? 'Quitar destacado' : 'Destacar este movimiento'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Send className="h-4 w-4 mr-2" />
+            Enviar por email
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Send className="h-4 w-4 mr-2" />
+            Enviar por WhatsApp
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            className="text-red-600"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Eliminar tarea
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {/* Contadores superiores */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Tareas Pendientes</p>
-                <p className="text-5xl font-bold text-blue-600 mt-2">{tareasPendientes}</p>
-              </div>
-              <CheckSquare className="h-16 w-16 text-blue-600 opacity-20" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Días desde último movimiento impulsorio</p>
-                <p className={`text-5xl font-bold mt-2 ${diasDesdeUltimoMovimiento > 180 ? 'text-red-600' : 'text-green-600'}`}>
-                  {diasDesdeUltimoMovimiento}
-                </p>
-              </div>
-              <Clock className={`h-16 w-16 opacity-20 ${diasDesdeUltimoMovimiento > 180 ? 'text-red-600' : 'text-green-600'}`} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Selector de columnas (pestañas) */}
       <div className="grid grid-cols-4 gap-2">
         <Button
@@ -794,17 +1008,16 @@ export default function TareasExpedienteView({
             </CardHeader>
             <CardContent>
               {/* Header de la tabla */}
-              <div className="grid grid-cols-12 gap-2 pb-3 border-b text-sm font-semibold text-gray-700 mb-3">
-                <div className="col-span-1">Estado</div>
+              <div className="grid grid-cols-12 gap-2 pb-3 px-4 border-b text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                <div className="col-span-2">Estado</div>
                 <div className="col-span-3">Acción</div>
                 <div className="col-span-2">Fecha</div>
                 <div className="col-span-1">Hora</div>
                 <div className="col-span-2">Responsable</div>
                 <div className="col-span-2">Observaciones</div>
-                <div className="col-span-1 text-center">Opciones</div>
               </div>
 
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {tareasProcesales.length > 0 ? (
                   tareasProcesales.map((tarea) => (
                     <TareaRow
@@ -848,17 +1061,16 @@ export default function TareasExpedienteView({
             </CardHeader>
             <CardContent>
               {/* Header de la tabla */}
-              <div className="grid grid-cols-12 gap-2 pb-3 border-b text-sm font-semibold text-gray-700 mb-3">
-                <div className="col-span-1">Estado</div>
+              <div className="grid grid-cols-12 gap-2 pb-3 px-4 border-b text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                <div className="col-span-2">Estado</div>
                 <div className="col-span-3">Acción</div>
                 <div className="col-span-2">Fecha</div>
                 <div className="col-span-1">Hora</div>
                 <div className="col-span-2">Responsable</div>
                 <div className="col-span-2">Observaciones</div>
-                <div className="col-span-1 text-center">Opciones</div>
               </div>
 
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {tareasExtraProcesales.length > 0 ? (
                   tareasExtraProcesales.map((tarea) => (
                     <TareaRow
@@ -902,17 +1114,16 @@ export default function TareasExpedienteView({
             </CardHeader>
             <CardContent>
               {/* Header de la tabla */}
-              <div className="grid grid-cols-12 gap-2 pb-3 border-b text-sm font-semibold text-gray-700 mb-3">
-                <div className="col-span-1">Estado</div>
+              <div className="grid grid-cols-12 gap-2 pb-3 px-4 border-b text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wide">
+                <div className="col-span-2">Estado</div>
                 <div className="col-span-3">Acción</div>
                 <div className="col-span-2">Fecha</div>
                 <div className="col-span-1">Hora</div>
                 <div className="col-span-2">Responsable</div>
                 <div className="col-span-2">Observaciones</div>
-                <div className="col-span-1 text-center">Opciones</div>
               </div>
 
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
                 {tareasAuditoria.length > 0 ? (
                   tareasAuditoria.map((tarea) => (
                     <TareaRow
@@ -1172,8 +1383,14 @@ export default function TareasExpedienteView({
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Estado</Label>
                   <div className="mt-1">
-                    <Badge className={selectedTarea.estado === 'HECHO' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
-                      {selectedTarea.estado}
+                    <Badge className={
+                      selectedTarea.estado === 'HECHO' 
+                        ? 'bg-green-500 text-white' 
+                        : selectedTarea.estado === 'PENDIENTE'
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-red-500 text-white'
+                    }>
+                      {selectedTarea.estado === 'HECHO' ? '✓ Hecho' : selectedTarea.estado === 'PENDIENTE' ? '○ Pendiente' : '! Importante'}
                     </Badge>
                   </div>
                 </div>
@@ -1191,13 +1408,31 @@ export default function TareasExpedienteView({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-lg font-semibold">Observaciones</Label>
-                  <Badge variant="outline">{(selectedTarea.observacionesDetalladas?.length || 0)} observaciones</Badge>
+                  <Badge variant="outline">
+                    {(selectedTarea.observaciones ? 1 : 0) + (selectedTarea.observacionesDetalladas?.length || 0)} observaciones
+                  </Badge>
                 </div>
 
-                {/* Lista de observaciones - Mostrar últimas 2 o todas */}
+                {/* Lista de observaciones */}
                 <div className="space-y-3">
-                  {selectedTarea.observacionesDetalladas && selectedTarea.observacionesDetalladas.length > 0 ? (
+                  {/* Observación Principal (la inicial al crear la tarea) */}
+                  {selectedTarea.observaciones && (
+                    <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className="bg-blue-600 text-white text-xs">Observación Principal</Badge>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedTarea.observaciones}</p>
+                    </div>
+                  )}
+
+                  {/* Observaciones Adicionales (historial) */}
+                  {selectedTarea.observacionesDetalladas && selectedTarea.observacionesDetalladas.length > 0 && (
                     <>
+                      <div className="border-t pt-3 mt-3">
+                        <Label className="text-sm font-medium text-gray-600 mb-3 block">
+                          Historial de Observaciones ({selectedTarea.observacionesDetalladas.length})
+                        </Label>
+                      </div>
                       {/* Determinar qué observaciones mostrar */}
                       {(() => {
                         const observaciones = selectedTarea.observacionesDetalladas
@@ -1327,7 +1562,10 @@ export default function TareasExpedienteView({
                         )
                       })()}
                     </>
-                  ) : (
+                  )}
+
+                  {/* Mensaje si no hay ninguna observación */}
+                  {!selectedTarea.observaciones && (!selectedTarea.observacionesDetalladas || selectedTarea.observacionesDetalladas.length === 0) && (
                     <p className="text-center text-gray-400 py-8">No hay observaciones aún</p>
                   )}
                 </div>

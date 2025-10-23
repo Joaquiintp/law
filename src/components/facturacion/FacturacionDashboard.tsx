@@ -32,8 +32,7 @@ interface Factura {
   moneda: string
   cliente: {
     id: string
-    nombre: string
-    apellido: string
+    razonSocial: string
     email: string | null
   }
   honorarios: Array<{
@@ -67,8 +66,7 @@ interface TopCliente {
   _count: number
   cliente?: {
     id: string
-    nombre: string
-    apellido: string
+    razonSocial: string
   }
 }
 
@@ -282,7 +280,7 @@ export default function FacturacionDashboard({ data }: FacturacionDashboardProps
                             </Badge>
                           </div>
                           <div className="text-sm text-gray-600">
-                            {factura.cliente.nombre} {factura.cliente.apellido}
+                            {factura.cliente.razonSocial}
                           </div>
                           <div className="text-xs text-gray-500 flex items-center">
                             <Calendar className="h-3 w-3 mr-1" />
@@ -339,7 +337,7 @@ export default function FacturacionDashboard({ data }: FacturacionDashboardProps
                         </div>
                         <div>
                           <div className="text-sm font-medium">
-                            {cliente.cliente?.nombre} {cliente.cliente?.apellido}
+                            {cliente.cliente?.razonSocial}
                           </div>
                           <div className="text-xs text-gray-500">
                             {cliente._count} facturas

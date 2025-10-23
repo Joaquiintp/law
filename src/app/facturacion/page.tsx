@@ -17,8 +17,8 @@ async function getFacturacionData() {
       cliente: {
         select: {
           id: true,
-          nombre: true,
-          apellido: true,
+          razonSocial: true,
+          
           email: true
         }
       },
@@ -137,8 +137,8 @@ async function getFacturacionData() {
     },
     select: {
       id: true,
-      nombre: true,
-      apellido: true
+      razonSocial: true,
+      
     }
   })
 

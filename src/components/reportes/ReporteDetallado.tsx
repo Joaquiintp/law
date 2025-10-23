@@ -202,7 +202,7 @@ Reporte generado por ERP Jurídico
                 <div className="flex items-center space-x-3">
                   <Badge className="bg-blue-600 text-white">#{index + 1}</Badge>
                   <div>
-                    <h4 className="font-medium">{cliente.nombre} {cliente.apellido}</h4>
+                    <h4 className="font-medium">{cliente.razonSocial}</h4>
                     <p className="text-sm text-gray-500">
                       {cliente.expedientesActivos} expedientes activos
                     </p>

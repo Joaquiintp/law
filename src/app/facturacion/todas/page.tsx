@@ -40,10 +40,7 @@ async function getFacturasConFiltros(searchParams: any) {
     where.OR = [
       { numero: { contains: search, mode: 'insensitive' } },
       { cliente: { 
-        OR: [
-          { nombre: { contains: search, mode: 'insensitive' } },
-          { apellido: { contains: search, mode: 'insensitive' } }
-        ]
+        razonSocial: { contains: search, mode: 'insensitive' }
       }}
     ]
   }
@@ -55,8 +52,7 @@ async function getFacturasConFiltros(searchParams: any) {
         cliente: {
           select: {
             id: true,
-            nombre: true,
-            apellido: true,
+            razonSocial: true,
             email: true
           }
         },
@@ -92,11 +88,10 @@ async function getClientesParaFiltro() {
     },
     select: {
       id: true,
-      nombre: true,
-      apellido: true
+      razonSocial: true
     },
     orderBy: {
-      apellido: 'asc'
+      razonSocial: 'asc'
     }
   })
 }

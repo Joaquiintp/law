@@ -12,12 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,8 +23,6 @@ import {
   CheckSquare,
   DollarSign,
   User,
-  Building,
-  Clock,
   Plus,
   Download,
   Eye,
@@ -61,6 +53,7 @@ interface ExpedienteDetailProps {
   expediente: {
     id: string
     numero: string
+    numeroCarpeta?: string | null
     caratula: string
     fuero: string
     materia: string
@@ -82,6 +75,7 @@ interface ExpedienteDetailProps {
     responsable: {
       id: string
       name?: string | null
+      color?: string | null
     }
     creador: {
       id: string
@@ -152,6 +146,21 @@ const getPrioridadBadge = (prioridad: string) => {
   }
   
   return variants[prioridad as keyof typeof variants] || 'bg-gray-100 text-gray-700'
+}
+
+// Función para determinar si usar texto blanco o negro según el color de fondo
+const getContrastColor = (hexColor: string) => {
+  // Convertir hex a RGB
+  const hex = hexColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16)
+  const g = parseInt(hex.substr(2, 2), 16)
+  const b = parseInt(hex.substr(4, 2), 16)
+  
+  // Calcular luminancia
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  
+  // Retornar blanco o negro según luminancia
+  return luminance > 0.5 ? '#000000' : '#FFFFFF'
 }
 
 export default function ExpedienteDetail({ expediente }: ExpedienteDetailProps) {
@@ -280,6 +289,16 @@ export default function ExpedienteDetail({ expediente }: ExpedienteDetailProps) 
     window.open(url, '_blank')
   }
 
+  // Calcular días desde último movimiento
+  const calcularDiasDesdeUltimoMovimiento = () => {
+    const fechaInicio = new Date(expediente.fechaInicio)
+    const hoy = new Date()
+    const diferencia = hoy.getTime() - fechaInicio.getTime()
+    return Math.floor(diferencia / (1000 * 60 * 60 * 24))
+  }
+
+  const diasDesdeUltimoMovimiento = calcularDiasDesdeUltimoMovimiento()
+
   const handleDescargarDocumento = (url: string, nombre: string) => {
     const link = document.createElement('a')
     link.href = url
@@ -310,201 +329,154 @@ export default function ExpedienteDetail({ expediente }: ExpedienteDetailProps) 
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/expedientes">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Volver
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-3xl font-bold text-gray-900">{expediente.numero}</h1>
-              <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <User className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {expediente.cliente.razonSocial}
-                </span>
+    <div className="flex gap-6">
+      {/* Panel izquierdo - Información del Expediente (estático) */}
+      <div className="w-80 flex-shrink-0">
+        <Card className="sticky top-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Información del Expediente</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Estado */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Estado</label>
+              <div className="mt-1">
+                <Badge className={expediente.estado === 'ACTIVO' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}>
+                  {expediente.estado === 'ACTIVO' ? 'En Trámite' : 'Archivo (Resuelto)'}
+                </Badge>
               </div>
             </div>
-            <p className="text-gray-600 mt-1 font-semibold">{expediente.caratula}</p>
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <Link href={`/expedientes/${expediente.id}/editar`}>
-            <Button variant="outline">
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
-          </Link>
-          <Button>
-            <FileText className="h-4 w-4 mr-2" />
-            Generar Reporte
-          </Button>
-        </div>
+
+            {/* Cliente con acciones */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Cliente</label>
+              <div className="mt-1">
+                <p className="font-medium text-sm mb-2">{expediente.cliente.razonSocial}</p>
+                <div className="flex gap-2">
+                  <Link href={`/clientes/${expediente.cliente.id}`}>
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Ver perfil del cliente">
+                      <User className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  {expediente.cliente.telefono && (
+                    <>
+                      <a href={`https://wa.me/${expediente.cliente.telefono.replace(/[^0-9]/g, '')}`} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Enviar WhatsApp">
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                          </svg>
+                        </Button>
+                      </a>
+                      <a href={`tel:${expediente.cliente.telefono}`}>
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Llamar">
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </Button>
+                      </a>
+                    </>
+                  )}
+                  {expediente.cliente.email && (
+                    <a href={`mailto:${expediente.cliente.email}`}>
+                      <Button variant="outline" size="sm" className="h-8 w-8 p-0" title="Enviar email">
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Tipo */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Tipo</label>
+              <p className="mt-1 text-sm font-medium">{expediente.fuero}</p>
+            </div>
+
+            {/* Números importantes */}
+            <div className="space-y-2 pt-2 border-t">
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase">Nro de Carpeta</label>
+                <div className="mt-1">
+                  <Badge className="bg-blue-600 text-white font-mono">
+                    {expediente.numeroCarpeta || 'Sin asignar'}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 uppercase">Nro de Expediente</label>
+                <div className="mt-1">
+                  <Badge className="bg-blue-600 text-white font-mono">
+                    {expediente.numero}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Responsable */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 uppercase">Responsable</label>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-3 w-3 rounded" style={{ backgroundColor: expediente.responsable.color || '#3B82F6' }}></div>
+                <Badge style={{ 
+                  backgroundColor: expediente.responsable.color || '#3B82F6',
+                  color: getContrastColor(expediente.responsable.color || '#3B82F6')
+                }}>
+                  {expediente.responsable.name || 'Sin asignar'}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Fecha de inicio y días desde último movimiento */}
+            <div className="pt-2 border-t">
+              <label className="text-xs font-medium text-gray-500 uppercase">Inicio</label>
+              <p className="mt-1 text-sm">
+                {format(new Date(expediente.fechaInicio), 'dd/MM/yyyy', { locale: es })}
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                ({diasDesdeUltimoMovimiento} días desde último movimiento)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Información general - Acordeón */}
-      <Accordion type="multiple" className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Información del Expediente */}
-          <div>
-            <AccordionItem value="expediente" className="border rounded-lg">
-              <Card className="border-0">
-                <AccordionTrigger className="px-6 hover:no-underline">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Building className="h-4 w-4" />
-                    Información del Expediente
-                  </CardTitle>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <CardContent className="space-y-4 pt-0">
-                    <div className="grid grid-cols-1 gap-3">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Estado</label>
-                        <div className="mt-1">
-                          <Badge className={getEstadoBadge(expediente.estado)}>
-                            {expediente.estado}
-                          </Badge>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Fuero</label>
-                        <p className="mt-1 text-sm">{expediente.fuero}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Materia</label>
-                        <p className="mt-1 text-sm">{expediente.materia}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Juzgado</label>
-                        <p className="mt-1 text-sm">{expediente.juzgado || 'Sin asignar'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Secretaría</label>
-                        <p className="mt-1 text-sm">{expediente.secretaria || 'Sin asignar'}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Responsable</label>
-                        <p className="mt-1 text-sm">{expediente.responsable.name || 'Sin asignar'}</p>
-                      </div>
-                    </div>
-
-                    {expediente.descripcion && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Descripción</label>
-                        <p className="mt-1 text-sm text-gray-900">{expediente.descripcion}</p>
-                      </div>
-                    )}
-
-                    {expediente.observaciones && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Observaciones</label>
-                        <p className="mt-1 text-sm text-gray-900">{expediente.observaciones}</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </AccordionContent>
-              </Card>
-            </AccordionItem>
+      {/* Contenido principal */}
+      <div className="flex-1 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/expedientes">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
+            </Link>
+            <div>
+              {/* Carátula arriba (más grande) */}
+              <h1 className="text-3xl font-bold text-gray-900">{expediente.caratula}</h1>
+              {/* Número abajo (más pequeño) */}
+              <p className="text-sm text-gray-500 mt-1">Expediente: {expediente.numero}</p>
+            </div>
           </div>
-
-          {/* Cliente */}
-          <div>
-            <AccordionItem value="cliente" className="border rounded-lg">
-              <Card className="border-0">
-                <AccordionTrigger className="px-6 hover:no-underline">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <User className="h-4 w-4" />
-                    Cliente
-                  </CardTitle>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <CardContent className="space-y-3 pt-0">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Razón Social / Nombre Completo</label>
-                      <p className="mt-1 text-sm font-medium">
-                        {expediente.cliente.razonSocial}
-                      </p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Documento</label>
-                      <p className="mt-1 text-sm">{expediente.cliente.documento}</p>
-                    </div>
-                    {expediente.cliente.email && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Email</label>
-                        <p className="mt-1 text-sm">{expediente.cliente.email}</p>
-                      </div>
-                    )}
-                    {expediente.cliente.telefono && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Teléfono</label>
-                        <p className="mt-1 text-sm">{expediente.cliente.telefono}</p>
-                      </div>
-                    )}
-                    <div className="pt-2">
-                      <Link href={`/clientes/${expediente.cliente.id}`}>
-                        <Button variant="outline" size="sm" className="w-full">
-                          Ver Cliente Completo
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </AccordionContent>
-              </Card>
-            </AccordionItem>
-          </div>
-
-          {/* Fechas Importantes */}
-          <div>
-            <AccordionItem value="fechas" className="border rounded-lg">
-              <Card className="border-0">
-                <AccordionTrigger className="px-6 hover:no-underline">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Clock className="h-4 w-4" />
-                    Fechas Importantes
-                  </CardTitle>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <CardContent className="space-y-3 pt-0">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Fecha de Inicio</label>
-                      <p className="mt-1 text-sm">
-                        {format(new Date(expediente.fechaInicio), 'dd/MM/yyyy', { locale: es })}
-                      </p>
-                    </div>
-                    
-                    {expediente.fechaProximaAudiencia && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Próxima Audiencia</label>
-                        <p className="mt-1 text-sm font-medium text-blue-600">
-                          {format(new Date(expediente.fechaProximaAudiencia), 'dd/MM/yyyy', { locale: es })}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {expediente.fechaCierre && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Fecha de Cierre</label>
-                        <p className="mt-1 text-sm">
-                          {format(new Date(expediente.fechaCierre), 'dd/MM/yyyy', { locale: es })}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </AccordionContent>
-              </Card>
-            </AccordionItem>
+          
+          <div className="flex gap-2">
+            <Link href={`/expedientes/${expediente.id}/editar`}>
+              <Button variant="outline">
+                <Edit className="h-4 w-4 mr-2" />
+                Editar
+              </Button>
+            </Link>
+            <Button>
+              <FileText className="h-4 w-4 mr-2" />
+              Generar Reporte
+            </Button>
           </div>
         </div>
-      </Accordion>
 
-      {/* Tabs con contenido detallado */}
+      {/* Tabs con contenido detallado - TAREAS PRIMERO */}
       <Tabs defaultValue="tareas" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="tareas">
@@ -872,6 +844,7 @@ export default function ExpedienteDetail({ expediente }: ExpedienteDetailProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }

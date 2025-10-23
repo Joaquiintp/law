@@ -53,8 +53,7 @@ type FacturaFormData = z.infer<typeof facturaSchema>
 
 interface Cliente {
   id: string
-  nombre: string
-  apellido: string
+  razonSocial: string
   email: string | null
   cuitCuil?: string | null
   condicionIva?: string | null
@@ -71,8 +70,7 @@ interface Honorario {
     numero: string
     cliente: {
       id: string
-      nombre: string
-      apellido: string
+      razonSocial: string
     }
   }
 }
@@ -289,7 +287,7 @@ export default function NuevaFacturaForm({
             <SelectContent>
               {clientes.map((cliente) => (
                 <SelectItem key={cliente.id} value={cliente.id}>
-                  {cliente.nombre} {cliente.apellido} - {cliente.email || 'Sin email'}
+                  {cliente.razonSocial} - {cliente.email || 'Sin email'}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -323,7 +321,7 @@ export default function NuevaFacturaForm({
             <div className="flex items-center space-x-2 mb-2">
               <User className="h-4 w-4 text-blue-600" />
               <span className="font-medium text-blue-900">
-                {clienteSeleccionado.nombre} {clienteSeleccionado.apellido}
+                {clienteSeleccionado.razonSocial}
               </span>
             </div>
             <div className="text-sm text-blue-700 space-y-1">

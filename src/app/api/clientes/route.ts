@@ -5,24 +5,35 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const clienteSchema = z.object({
-  nombre: z.string().min(2),
-  apellido: z.string().min(2),
+  razonSocial: z.string().min(2, 'La razón social debe tener al menos 2 caracteres'),
   email: z.string().email().optional().nullable(),
   telefono: z.string().optional().nullable(),
   direccion: z.string().optional().nullable(),
   tipoPersona: z.enum(['FISICA', 'JURIDICA']),
   cuitCuil: z.string().optional().nullable(),
-  razonSocial: z.string().optional().nullable(),
+  documento: z.string().default(''),
+  tipoDocumento: z.enum(['DNI', 'CUIT', 'CUIL', 'PASAPORTE', 'LC', 'LE']).default('DNI'),
   estado: z.enum(['ACTIVO', 'INACTIVO', 'SUSPENDIDO']),
-  cbu: z.string().optional().nullable(),
+  cbu: z.string().length(22, 'El CBU debe tener exactamente 22 caracteres').optional().nullable(),
   banco: z.string().optional().nullable(),
+  aliasBancario: z.string().optional().nullable(),
 })
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Obtener estudioId del usuario
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { estudioId: true }
+    })
+
+    if (!user?.estudioId) {
+      return NextResponse.json({ error: 'Usuario sin estudio asignado' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -31,14 +42,16 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const estado = searchParams.get('estado') || ''
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = {
+      estudioId: user.estudioId // Filtrar por estudio
+    }
 
     if (search) {
       where.OR = [
-        { nombre: { contains: search, mode: 'insensitive' } },
-        { apellido: { contains: search, mode: 'insensitive' } },
+        { razonSocial: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { telefono: { contains: search } },
+        { cuitCuil: { contains: search } },
       ]
     }
 
@@ -58,7 +71,7 @@ export async function GET(request: NextRequest) {
           }
         },
         orderBy: {
-          apellido: 'asc'
+          razonSocial: 'asc'
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -87,8 +100,21 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Obtener usuario con estudio
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        id: true,
+        estudioId: true
+      }
+    })
+
+    if (!user || !user.estudioId) {
+      return NextResponse.json({ error: 'Usuario sin estudio asignado' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -123,7 +149,10 @@ export async function POST(request: NextRequest) {
     }
 
     const cliente = await prisma.cliente.create({
-      data: validatedData,
+      data: {
+        ...validatedData,
+        estudioId: user.estudioId
+      },
       include: {
         _count: {
           select: {

@@ -43,15 +43,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Buscar el usuario creador
+    // Buscar el usuario creador con su estudio
     const creador = await prisma.user.findUnique({
       where: {
         email: session.user.email
+      },
+      select: {
+        id: true,
+        estudioId: true
       }
     })
 
-    if (!creador) {
-      return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    if (!creador || !creador.estudioId) {
+      return NextResponse.json({ error: 'Usuario sin estudio asignado' }, { status: 403 })
     }
 
     // Crear el expediente
@@ -71,6 +75,7 @@ export async function POST(request: NextRequest) {
         clienteId: data.clienteId,
         responsableId: data.responsableId,
         creadorId: creador.id,
+        estudioId: creador.estudioId,
       },
       include: {
         cliente: true,
@@ -113,41 +118,51 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session) {
+    if (!session?.user?.email) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    // Obtener estudioId del usuario
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { estudioId: true }
+    })
+
+    if (!user?.estudioId) {
+      return NextResponse.json({ error: 'Usuario sin estudio asignado' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
 
-    let whereClause = {}
+    let whereClause: any = {
+      estudioId: user.estudioId // Filtrar por estudio
+    }
 
     // Si hay búsqueda, filtrar por número o carátula
     if (search) {
-      whereClause = {
-        OR: [
-          {
-            numero: {
+      whereClause.OR = [
+        {
+          numero: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          caratula: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          cliente: {
+            razonSocial: {
               contains: search,
               mode: 'insensitive'
-            }
-          },
-          {
-            caratula: {
-              contains: search,
-              mode: 'insensitive'
-            }
-          },
-          {
-            cliente: {
-              nombre: {
-                contains: search,
-                mode: 'insensitive'
-              }
             }
           }
-        ]
-      }
+        }
+      ]
     }
 
     const expedientes = await prisma.expediente.findMany({

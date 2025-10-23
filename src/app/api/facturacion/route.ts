@@ -180,8 +180,8 @@ export async function GET(request: NextRequest) {
           cliente: {
             select: {
               id: true,
-              nombre: true,
-              apellido: true,
+              razonSocial: true,
+              
               email: true
             }
           },

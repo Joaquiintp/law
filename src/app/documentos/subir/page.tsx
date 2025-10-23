@@ -16,8 +16,8 @@ async function getExpedientesActivos() {
       cliente: {
         select: {
           id: true,
-          nombre: true,
-          apellido: true
+          razonSocial: true,
+          
         }
       }
     },

@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Calendar, AlertCircle } from 'lucide-react'
 
 interface NuevaTareaDialogProps {
   open: boolean
@@ -43,6 +44,8 @@ export default function NuevaTareaDialog({
     responsable: '',
     observaciones: '',
     fecha: new Date().toISOString().split('T')[0],
+    marcarEnCalendario: false,
+    fechaCalendario: '',
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -79,6 +82,8 @@ export default function NuevaTareaDialog({
       responsable: '',
       observaciones: '',
       fecha: new Date().toISOString().split('T')[0],
+      marcarEnCalendario: false,
+      fechaCalendario: '',
     })
     
     onOpenChange(false)
@@ -121,7 +126,7 @@ export default function NuevaTareaDialog({
           </div>
 
           <div>
-            <Label htmlFor="responsable">Responsable (Staff) *</Label>
+            <Label htmlFor="responsable">Responsable *</Label>
             <Select
               value={formData.responsable}
               onValueChange={(value) => setFormData({ ...formData, responsable: value })}
@@ -157,6 +162,53 @@ export default function NuevaTareaDialog({
               value={formData.fecha}
               onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
             />
+          </div>
+
+          {/* Marcar en calendario */}
+          <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                id="marcarEnCalendario"
+                checked={formData.marcarEnCalendario}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  marcarEnCalendario: e.target.checked,
+                  fechaCalendario: e.target.checked ? formData.fechaCalendario : ''
+                })}
+                className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <label 
+                  htmlFor="marcarEnCalendario" 
+                  className="font-medium text-gray-900 cursor-pointer flex items-center"
+                >
+                  <Calendar className="h-4 w-4 mr-2 text-blue-600" />
+                  Marcar en calendario
+                </label>
+                <p className="text-xs text-gray-600 mt-1 flex items-start">
+                  <AlertCircle className="h-3 w-3 mr-1 mt-0.5 flex-shrink-0 text-blue-500" />
+                  Utilízalo para designar una fecha límite, se marcará en calendario como "Tarea importante"
+                </p>
+              </div>
+            </div>
+
+            {formData.marcarEnCalendario && (
+              <div className="ml-7 animate-in fade-in slide-in-from-top-2 duration-200">
+                <Label htmlFor="fechaCalendario" className="text-sm">
+                  Fecha límite *
+                </Label>
+                <Input
+                  id="fechaCalendario"
+                  type="date"
+                  value={formData.fechaCalendario}
+                  onChange={(e) => setFormData({ ...formData, fechaCalendario: e.target.value })}
+                  required={formData.marcarEnCalendario}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="mt-1"
+                />
+              </div>
+            )}
           </div>
 
           <div>

@@ -5,12 +5,26 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Creando datos de prueba...')
 
-  // Crear usuarios
+  // Crear estudio jurídico
+  const estudio = await prisma.estudio.create({
+    data: {
+      nombre: 'Estudio Jurídico Demo',
+      direccion: 'Av. Corrientes 1234, CABA',
+      telefono: '+54 11 4567-8900',
+      email: 'contacto@estudiodemo.com',
+      cuit: '30-12345678-9',
+    },
+  })
+
+  console.log('Estudio creado')
+
+  // Crear usuarios asociados al estudio
   const adminUser = await prisma.user.create({
     data: {
       name: 'Administrador',
       email: 'admin@juridico.com',
       role: 'ADMIN',
+      estudioId: estudio.id,
     },
   })
 
@@ -19,6 +33,7 @@ async function main() {
       name: 'Dr. Juan Carlos Rodríguez',
       email: 'jrodriguez@juridico.com',
       role: 'ABOGADO',
+      estudioId: estudio.id,
     },
   })
 
@@ -27,6 +42,7 @@ async function main() {
       name: 'Dra. María Elena González',
       email: 'mgonzalez@juridico.com',
       role: 'ABOGADO',
+      estudioId: estudio.id,
     },
   })
 
@@ -35,6 +51,7 @@ async function main() {
       name: 'Ana Secretaria',
       email: 'asecretaria@juridico.com',
       role: 'SECRETARIO',
+      estudioId: estudio.id,
     },
   })
 
@@ -43,12 +60,12 @@ async function main() {
   // Crear clientes
   const cliente1 = await prisma.cliente.create({
     data: {
-      nombre: 'Juan',
-      apellido: 'Pérez',
+      razonSocial: 'Juan Pérez',
       email: 'juan.perez@email.com',
       telefono: '+54 11 1234-5678',
       documento: '12345678',
       tipoDocumento: 'DNI',
+      estudioId: estudio.id,
       tipoPersona: 'FISICA',
       estado: 'ACTIVO',
       direccion: 'Av. Corrientes 1234, CABA',
@@ -60,8 +77,7 @@ async function main() {
 
   const cliente2 = await prisma.cliente.create({
     data: {
-      nombre: 'María',
-      apellido: 'López',
+      razonSocial: 'María López',
       email: 'maria.lopez@email.com',
       telefono: '+54 11 8765-4321',
       documento: '87654321',
@@ -77,8 +93,7 @@ async function main() {
 
   const clienteEmpresa = await prisma.cliente.create({
     data: {
-      nombre: 'Carlos',
-      apellido: 'Martínez',
+      razonSocial: 'Carlos Martínez',
       email: 'carlos@empresa.com',
       telefono: '+54 11 5555-5555',
       documento: '30123456789',
@@ -88,7 +103,6 @@ async function main() {
       direccion: 'Av. Santa Fe 5678, CABA',
       cuitCuil: '30-12345678-9',
       domicilio: 'Av. Santa Fe 5678, CABA',
-      razonSocial: 'Empresa Demo SRL',
       cuit: '30-12345678-9',
       condicionIva: 'RESPONSABLE_INSCRIPTO',
     },

@@ -39,8 +39,9 @@ interface ExpedienteWithRelations {
   fechaProximaAudiencia?: Date | null
   cliente: {
     id: string
-    nombre: string
-    apellido: string
+    razonSocial: string
+    email?: string | null
+    tipoPersona?: string
   }
   responsable: {
     id: string
@@ -50,6 +51,12 @@ interface ExpedienteWithRelations {
     id: string
     name?: string | null
   }
+  tareas?: Array<{
+    id: string
+    titulo: string
+    prioridad: string
+    fechaVencimiento?: Date | null
+  }>
   _count: {
     documentos: number
     audiencias: number
@@ -59,6 +66,11 @@ interface ExpedienteWithRelations {
 
 interface ExpedientesListProps {
   expedientes: ExpedienteWithRelations[]
+  searchParams?: {
+    razonSocial?: string
+    urgentes?: string
+    categoria?: string
+  }
 }
 
 const getEstadoBadge = (estado: string) => {
@@ -72,7 +84,7 @@ const getEstadoBadge = (estado: string) => {
   return variants[estado as keyof typeof variants] || 'bg-gray-100 text-gray-700'
 }
 
-export default function ExpedientesList({ expedientes }: ExpedientesListProps) {
+export default function ExpedientesList({ expedientes, searchParams }: ExpedientesListProps) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [filterEstado, setFilterEstado] = useState<string>('TODOS')
@@ -81,21 +93,79 @@ export default function ExpedientesList({ expedientes }: ExpedientesListProps) {
     const matchesSearch = 
       exp.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
       exp.caratula.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${exp.cliente.nombre} ${exp.cliente.apellido}`.toLowerCase().includes(searchTerm.toLowerCase())
+      exp.cliente.razonSocial.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesFilter = filterEstado === 'TODOS' || exp.estado === filterEstado
     
     return matchesSearch && matchesFilter
   })
 
+  const hayFiltrosActivos = searchParams?.razonSocial || searchParams?.urgentes || searchParams?.categoria
+
+  const abrirModalFiltros = () => {
+    router.push('/expedientes?mostrarFiltros=true')
+  }
+
+  const limpiarFiltros = () => {
+    router.push('/expedientes')
+  }
+
   return (
     <div className="space-y-6">
+      {/* Banner de filtros activos */}
+      {hayFiltrosActivos && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-blue-900 mb-2">Filtros aplicados:</div>
+                <div className="flex flex-wrap gap-2">
+                  {searchParams?.razonSocial && (
+                    <Badge variant="secondary" className="bg-white">
+                      Cliente: {searchParams.razonSocial}
+                    </Badge>
+                  )}
+                  {searchParams?.urgentes === 'true' && (
+                    <Badge className="bg-orange-500">
+                      Solo urgentes
+                    </Badge>
+                  )}
+                  {searchParams?.categoria && (
+                    <Badge className="bg-blue-600">
+                      {searchParams.categoria === 'PROCESAL' && 'Procesales'}
+                      {searchParams.categoria === 'EXTRA_PROCESAL' && 'Extra Procesales'}
+                      {searchParams.categoria === 'AUDITORIA' && 'Auditoría'}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={abrirModalFiltros}
+                  variant="outline"
+                  size="sm"
+                >
+                  Modificar Filtros
+                </Button>
+                <Button
+                  onClick={limpiarFiltros}
+                  variant="outline"
+                  size="sm"
+                >
+                  Limpiar Filtros
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Controles de búsqueda y filtros */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" />
-            Búsqueda y Filtros
+            Búsqueda Adicional
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -191,17 +261,29 @@ export default function ExpedientesList({ expedientes }: ExpedientesListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredExpedientes.map((expediente) => (
-                <TableRow 
-                  key={expediente.id}
-                  className="cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => router.push(`/expedientes/${expediente.id}`)}
-                >
-                  <TableCell className="font-medium">
-                    <span className="text-blue-600 font-semibold">
-                      {expediente.numero}
-                    </span>
-                  </TableCell>
+              {filteredExpedientes.map((expediente) => {
+                const tieneUrgentes = expediente.tareas?.some(t => t.prioridad === 'URGENTE')
+                
+                return (
+                  <TableRow 
+                    key={expediente.id}
+                    className={`cursor-pointer hover:bg-gray-50 transition-colors ${
+                      tieneUrgentes ? 'border-l-4 border-l-orange-500 bg-orange-50/30' : ''
+                    }`}
+                    onClick={() => router.push(`/expedientes/${expediente.id}`)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <span className="text-blue-600 font-semibold">
+                          {expediente.numero}
+                        </span>
+                        {tieneUrgentes && (
+                          <Badge className="bg-orange-500 text-xs">
+                            Urgente
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                   
                   <TableCell className="max-w-xs">
                     <div className="truncate" title={expediente.caratula}>
@@ -210,7 +292,7 @@ export default function ExpedientesList({ expedientes }: ExpedientesListProps) {
                   </TableCell>
                   
                   <TableCell>
-                    {expediente.cliente.nombre} {expediente.cliente.apellido}
+                    {expediente.cliente.razonSocial}
                   </TableCell>
                   
                   <TableCell>
@@ -272,7 +354,8 @@ export default function ExpedientesList({ expedientes }: ExpedientesListProps) {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )
+              })}
             </TableBody>
           </Table>
           

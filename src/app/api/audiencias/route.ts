@@ -52,8 +52,7 @@ export async function GET(request: NextRequest) {
           include: {
             cliente: {
               select: {
-                nombre: true,
-                apellido: true,
+                razonSocial: true,
               }
             }
           }
@@ -113,8 +112,7 @@ export async function POST(request: NextRequest) {
           include: {
             cliente: {
               select: {
-                nombre: true,
-                apellido: true,
+                razonSocial: true,
               }
             }
           }

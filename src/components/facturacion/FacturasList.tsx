@@ -35,8 +35,7 @@ interface Factura {
   moneda: string
   cliente: {
     id: string
-    nombre: string
-    apellido: string
+    razonSocial: string
     email: string | null
   }
   honorarios: Array<{
@@ -48,8 +47,7 @@ interface Factura {
 
 interface Cliente {
   id: string
-  nombre: string
-  apellido: string
+  razonSocial: string
 }
 
 interface FacturasListProps {
@@ -211,7 +209,7 @@ export default function FacturasList({
               <option value="">Todos los clientes</option>
               {clientes.map((cliente) => (
                 <option key={cliente.id} value={cliente.id}>
-                  {cliente.apellido}, {cliente.nombre}
+                  {cliente.razonSocial}
                 </option>
               ))}
             </select>
@@ -323,7 +321,7 @@ export default function FacturasList({
                           className="flex items-center hover:text-blue-600 transition-colors"
                         >
                           <User className="h-4 w-4 mr-1" />
-                          {factura.cliente.nombre} {factura.cliente.apellido}
+                          {factura.cliente.razonSocial}
                         </Link>
                         <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-1" />

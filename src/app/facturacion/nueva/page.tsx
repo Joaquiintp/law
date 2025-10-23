@@ -14,14 +14,13 @@ async function getClientesActivos() {
     },
     select: {
       id: true,
-      nombre: true,
-      apellido: true,
+      razonSocial: true,
       email: true,
       cuitCuil: true,
       condicionIva: true
     },
     orderBy: {
-      apellido: 'asc'
+      razonSocial: 'asc'
     }
   })
 }
@@ -38,8 +37,7 @@ async function getHonorariosPendientes() {
           cliente: {
             select: {
               id: true,
-              nombre: true,
-              apellido: true
+              razonSocial: true
             }
           }
         }

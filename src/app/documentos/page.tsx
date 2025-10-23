@@ -47,8 +47,8 @@ export default async function DocumentosPage({
         include: {
           cliente: {
             select: {
-              nombre: true,
-              apellido: true,
+              razonSocial: true,
+              
             }
           }
         }
@@ -74,8 +74,8 @@ export default async function DocumentosPage({
     include: {
       cliente: {
         select: {
-          nombre: true,
-          apellido: true,
+          razonSocial: true,
+          
         }
       }
     },

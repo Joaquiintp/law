@@ -106,6 +106,7 @@ model User {
   image         String?
   password      String?
   role          UserRole        @default(ABOGADO)
+  color         String?         // Color asignado al usuario (formato hex, ej: #3B82F6)
   
   // Multi-tenant
   estudioId     String?
@@ -200,6 +201,7 @@ model Cliente {
   // Relaciones
   expedientes       Expediente[]
   facturas          Factura[]
+  eventos           Evento[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -213,6 +215,7 @@ model Cliente {
 model Expediente {
   id                String @id @default(cuid())
   numero            String @unique
+  numeroCarpeta     String? // Número de carpeta física
   caratula          String
   fuero             Fuero
   materia           Materia
@@ -247,6 +250,7 @@ model Expediente {
   tareas            Tarea[]
   honorarios        Honorario[]
   consultasIA       ConsultaIA[]
+  eventos           Evento[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -314,6 +318,7 @@ model Tarea {
   id            String @id @default(cuid())
   titulo        String
   descripcion   String?
+  tipo          TipoTarea @default(PROCESAL) // Tipo de tarea: procesal, extra-procesal, auditoría
   prioridad     Prioridad @default(MEDIA)
   estado        EstadoTarea @default(PENDIENTE)
   
@@ -331,6 +336,33 @@ model Tarea {
   updatedAt DateTime @updatedAt
   
   @@index([fechaVencimiento])
+  @@index([estado])
+}
+
+model Evento {
+  id            String @id @default(cuid())
+  titulo        String
+  descripcion   String?
+  fecha         DateTime
+  hora          String?
+  tipo          TipoEvento
+  
+  // Detalles específicos por tipo
+  monto         Float? // Para cobros
+  moneda        Moneda? @default(ARS) // Para cobros
+  estado        EstadoEvento @default(PENDIENTE)
+  
+  // Relaciones opcionales
+  expedienteId  String?
+  expediente    Expediente? @relation(fields: [expedienteId], references: [id])
+  clienteId     String?
+  cliente       Cliente? @relation(fields: [clienteId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([fecha])
+  @@index([tipo])
   @@index([estado])
 }
 
@@ -530,9 +562,31 @@ enum Prioridad {
 
 enum EstadoTarea {
   PENDIENTE
+  IMPORTANTE
+  HECHO
   EN_PROGRESO
   COMPLETADA
   CANCELADA
+}
+
+enum TipoTarea {
+  PROCESAL
+  EXTRA_PROCESAL
+  AUDITORIA
+}
+
+enum TipoEvento {
+  COBRO
+  VENCIMIENTO
+  FECHA_LIMITE
+  REUNION
+  OTRO
+}
+
+enum EstadoEvento {
+  PENDIENTE
+  COMPLETADO
+  CANCELADO
 }
 
 enum EstadoHonorario {
@@ -595,4 +649,34 @@ enum EstadoConsultaIA {
   COMPLETADA
   ERROR
   CANCELADA
+}
+
+// Modelo para registrar uso de IA por estudio (auditoría y facturación)
+model LogIA {
+  id          String   @id @default(cuid())
+  estudioId   String
+  usuarioId   String?
+  
+  // Detalles de la operación
+  accion      String   // "resumir", "clasificar", "generar", "buscar", "analizar"
+  modelo      String   // "gpt-4o", "gpt-4o-mini", etc.
+  tokensUsados Int     @default(0)
+  costo       Float    @default(0) // USD
+  duracionMs  Int?     // Tiempo de procesamiento
+  
+  // Metadata adicional
+  documentoId String?  // Si aplica a un documento
+  expedienteId String? // Si aplica a un expediente
+  metadata    String?  // JSON con detalles extras
+  
+  // Estado
+  exitoso     Boolean  @default(true)
+  errorMensaje String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([estudioId])
+  @@index([usuarioId])
+  @@index([createdAt])
+  @@index([accion])
 }

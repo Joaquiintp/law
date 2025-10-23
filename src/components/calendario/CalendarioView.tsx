@@ -16,8 +16,12 @@ import {
   AlertCircle,
   CheckCircle,
   FileText,
-  User
+  User,
+  DollarSign,
+  Edit2,
+  Sparkles
 } from 'lucide-react'
+import NuevoEventoForm from './NuevoEventoForm'
 import { format, 
   startOfMonth, 
   endOfMonth, 
@@ -47,8 +51,7 @@ interface CalendarioViewProps {
       numero: string
       caratula: string
       cliente: {
-        nombre: string
-        apellido: string
+        razonSocial: string
       }
     }
   }>
@@ -64,18 +67,47 @@ interface CalendarioViewProps {
       numero: string
       caratula: string
       cliente: {
-        nombre: string
-        apellido: string
+        razonSocial: string
       }
     }
+  }>
+  eventos: Array<{
+    id: string
+    titulo: string
+    descripcion?: string | null
+    fecha: Date
+    hora?: string | null
+    tipo: string
+    monto?: number | null
+    moneda?: string | null
+    estado: string
+    expediente?: {
+      id: string
+      numero: string
+      caratula: string
+    } | null
+    cliente?: {
+      id: string
+      razonSocial: string
+    } | null
+  }>
+  expedientes: Array<{
+    id: string
+    numero: string
+    caratula: string
+  }>
+  clientes: Array<{
+    id: string
+    razonSocial: string
   }>
   session: any
 }
 
-export default function CalendarioView({ audiencias, tareas, session }: CalendarioViewProps) {
+export default function CalendarioView({ audiencias, tareas, eventos, expedientes, clientes, session }: CalendarioViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [activeView, setActiveView] = useState<'calendario' | 'audiencias' | 'tareas'>('calendario')
+  const [showNuevoEventoModal, setShowNuevoEventoModal] = useState(false)
 
   // Generar días del calendario
   const monthStart = startOfMonth(currentDate)
@@ -103,8 +135,35 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
     const tareasDelDia = tareas.filter(tarea => 
       tarea.fechaVencimiento && isSameDay(new Date(tarea.fechaVencimiento), date)
     )
+    const eventosDelDia = eventos.filter(evento =>
+      isSameDay(new Date(evento.fecha), date)
+    )
     
-    return { audiencias: audienciasDelDia, tareas: tareasDelDia }
+    return { audiencias: audienciasDelDia, tareas: tareasDelDia, eventos: eventosDelDia }
+  }
+
+  const getTipoAudienciaLabel = (tipo: string) => {
+    const labels: Record<string, string> = {
+      'CONCILIACION': 'Conciliación',
+      'DECLARACION_TESTIMONIAL': 'Declaración Testimonial',
+      'ALEGATOS': 'Alegatos',
+      'LECTURA_DE_SENTENCIA': 'Lectura de Sentencia',
+      'MEDIACION': 'Mediación',
+      'REVISION_MEDIDAS': 'Revisión de Medidas',
+      'OTRA': 'Otra'
+    }
+    return labels[tipo] || tipo
+  }
+
+  const getEventoIconAndColor = (tipo: string) => {
+    const config: Record<string, { icon: any, color: string, bgColor: string }> = {
+      'COBRO': { icon: DollarSign, color: 'text-green-600', bgColor: 'bg-green-100' },
+      'VENCIMIENTO': { icon: AlertCircle, color: 'text-orange-600', bgColor: 'bg-orange-100' },
+      'FECHA_LIMITE': { icon: AlertCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
+      'REUNION': { icon: Users, color: 'text-purple-600', bgColor: 'bg-purple-100' },
+      'OTRO': { icon: Sparkles, color: 'text-gray-600', bgColor: 'bg-gray-100' }
+    }
+    return config[tipo] || config['OTRO']
   }
 
   const getEstadoBadgeColor = (estado: string, tipo: 'audiencia' | 'tarea') => {
@@ -168,11 +227,15 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
 
         <div className="flex items-center space-x-2">
           <Link href="/calendario/nueva-audiencia">
-            <Button>
+            <Button variant="outline">
               <Plus className="mr-2 h-4 w-4" />
               Nueva Audiencia
             </Button>
           </Link>
+          <Button onClick={() => setShowNuevoEventoModal(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Plus className="mr-2 h-4 w-4" />
+            Nuevo Evento
+          </Button>
         </div>
       </div>
 
@@ -226,14 +289,28 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
 
                       {/* Eventos del día */}
                       <div className="space-y-1">
-                        {eventos.audiencias.slice(0, 2).map((audiencia) => (
+                        {eventos.audiencias.slice(0, 1).map((audiencia) => (
                           <div
                             key={audiencia.id}
                             className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded truncate"
+                            title={`${getTipoAudienciaLabel(audiencia.tipo)} - ${audiencia.hora || 'Sin hora'}`}
                           >
-                            🏛️ {audiencia.hora || 'Sin hora'}
+                            🏛️ {getTipoAudienciaLabel(audiencia.tipo).substring(0, 12)}{getTipoAudienciaLabel(audiencia.tipo).length > 12 ? '...' : ''} {audiencia.hora}
                           </div>
                         ))}
+
+                        {eventos.eventos.slice(0, 1).map((evento) => {
+                          const { icon: Icon, color, bgColor } = getEventoIconAndColor(evento.tipo)
+                          return (
+                            <div
+                              key={evento.id}
+                              className={`text-xs px-1 py-0.5 rounded truncate ${bgColor}`}
+                              title={`${evento.titulo} - ${evento.hora || 'Sin hora'}`}
+                            >
+                              <span className={color}>●</span> {evento.titulo.substring(0, 12)}{evento.titulo.length > 12 ? '...' : ''}
+                            </div>
+                          )
+                        })}
                         
                         {eventos.tareas.slice(0, 1).map((tarea) => (
                           <div
@@ -243,14 +320,15 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
                                 ? 'bg-red-100 text-red-800' 
                                 : 'bg-yellow-100 text-yellow-800'
                             }`}
+                            title={tarea.titulo}
                           >
                             📋 {tarea.titulo.substring(0, 10)}...
                           </div>
                         ))}
 
-                        {(eventos.audiencias.length + eventos.tareas.length) > 3 && (
+                        {(eventos.audiencias.length + eventos.tareas.length + eventos.eventos.length) > 3 && (
                           <div className="text-xs text-gray-500">
-                            +{(eventos.audiencias.length + eventos.tareas.length) - 3} más
+                            +{(eventos.audiencias.length + eventos.tareas.length + eventos.eventos.length) - 3} más
                           </div>
                         )}
                       </div>
@@ -272,7 +350,7 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
               <CardContent>
                 {(() => {
                   const eventosDelDia = getEventosDelDia(selectedDate)
-                  const totalEventos = eventosDelDia.audiencias.length + eventosDelDia.tareas.length
+                  const totalEventos = eventosDelDia.audiencias.length + eventosDelDia.tareas.length + eventosDelDia.eventos.length
 
                   if (totalEventos === 0) {
                     return (
@@ -288,37 +366,106 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
                         <div>
                           <h4 className="font-medium text-gray-900 mb-2">Audiencias</h4>
                           <div className="space-y-2">
-                            {eventosDelDia.audiencias.map((audiencia) => (
-                              <div key={audiencia.id} className="flex items-center space-x-3 p-3 border rounded-lg">
-                                <CalendarIcon className="h-5 w-5 text-blue-600" />
-                                <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-medium">{audiencia.expediente.numero}</span>
-                                    <Badge className={getEstadoBadgeColor(audiencia.estado, 'audiencia')}>
-                                      {audiencia.estado}
-                                    </Badge>
+                            {eventosDelDia.audiencias.map((audiencia) => {
+                              const fechaAudiencia = new Date(audiencia.fecha)
+                              const hoy = new Date()
+                              hoy.setHours(0, 0, 0, 0)
+                              fechaAudiencia.setHours(0, 0, 0, 0)
+                              const puedeEditar = fechaAudiencia >= hoy
+                              
+                              return (
+                                <div key={audiencia.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:shadow-sm transition-shadow">
+                                  <CalendarIcon className="h-5 w-5 text-blue-600" />
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-medium">{getTipoAudienciaLabel(audiencia.tipo)}</span>
+                                      <Badge className={getEstadoBadgeColor(audiencia.estado, 'audiencia')}>
+                                        {audiencia.estado}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-sm text-gray-600">{audiencia.expediente.numero} - {audiencia.expediente.caratula}</p>
+                                    <p className="text-xs text-gray-500">
+                                      Cliente: {audiencia.expediente.cliente.razonSocial}
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-gray-600">{audiencia.expediente.caratula}</p>
-                                  <p className="text-xs text-gray-500">
-                                    Cliente: {audiencia.expediente.cliente.nombre} {audiencia.expediente.cliente.apellido}
-                                  </p>
-                                </div>
-                                <div className="text-right text-sm text-gray-500">
-                                  {audiencia.hora && (
-                                    <div className="flex items-center">
-                                      <Clock className="h-3 w-3 mr-1" />
-                                      {audiencia.hora}
-                                    </div>
+                                  <div className="text-right text-sm text-gray-500 flex-shrink-0">
+                                    {audiencia.hora && (
+                                      <div className="flex items-center justify-end mb-1">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        {audiencia.hora}
+                                      </div>
+                                    )}
+                                    {audiencia.lugar && (
+                                      <div className="flex items-center justify-end">
+                                        <MapPin className="h-3 w-3 mr-1" />
+                                        {audiencia.lugar.substring(0, 20)}{audiencia.lugar.length > 20 ? '...' : ''}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {puedeEditar && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-2"
+                                      title="Editar audiencia"
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
                                   )}
-                                  {audiencia.lugar && (
-                                    <div className="flex items-center">
-                                      <MapPin className="h-3 w-3 mr-1" />
-                                      {audiencia.lugar}
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                            ))}
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {eventosDelDia.eventos.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-2">Eventos</h4>
+                          <div className="space-y-2">
+                            {eventosDelDia.eventos.map((evento) => {
+                              const { icon: Icon, color, bgColor } = getEventoIconAndColor(evento.tipo)
+                              
+                              return (
+                                <div key={evento.id} className={`flex items-center space-x-3 p-3 border rounded-lg hover:shadow-sm transition-shadow ${bgColor}`}>
+                                  <Icon className={`h-5 w-5 ${color}`} />
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-medium">{evento.titulo}</span>
+                                      <Badge variant="outline" className={color}>
+                                        {evento.tipo.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    {evento.descripcion && (
+                                      <p className="text-sm text-gray-600">{evento.descripcion}</p>
+                                    )}
+                                    {evento.expediente && (
+                                      <p className="text-xs text-gray-500">
+                                        Expediente: {evento.expediente.numero}
+                                      </p>
+                                    )}
+                                    {evento.cliente && (
+                                      <p className="text-xs text-gray-500">
+                                        Cliente: {evento.cliente.razonSocial}
+                                      </p>
+                                    )}
+                                    {evento.monto && (
+                                      <p className="text-sm font-semibold text-green-700 mt-1">
+                                        {evento.moneda} ${evento.monto.toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right text-sm text-gray-500">
+                                    {evento.hora && (
+                                      <div className="flex items-center">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        {evento.hora}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -396,7 +543,7 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
                         <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
                           <div className="flex items-center">
                             <User className="h-4 w-4 mr-1" />
-                            {audiencia.expediente.cliente.nombre} {audiencia.expediente.cliente.apellido}
+                            {audiencia.expediente.cliente.razonSocial}
                           </div>
                           {audiencia.lugar && (
                             <div className="flex items-center">
@@ -427,10 +574,13 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
                           </Button>
                         </Link>
                         <Link href={`/calendario/audiencias/${audiencia.id}`}>
-                          <Button size="sm">
+                          <Button size="sm" variant="outline">
                             Ver Detalle
                           </Button>
                         </Link>
+                        <Badge variant="secondary" className="text-xs">
+                          {getTipoAudienciaLabel(audiencia.tipo)}
+                        </Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -480,7 +630,7 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
                           </div>
                           <div className="flex items-center">
                             <User className="h-4 w-4 mr-1" />
-                            {tarea.expediente.cliente.nombre} {tarea.expediente.cliente.apellido}
+                            {tarea.expediente.cliente.razonSocial}
                           </div>
                         </div>
 
@@ -509,6 +659,18 @@ export default function CalendarioView({ audiencias, tareas, session }: Calendar
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Modal Nuevo Evento */}
+      {showNuevoEventoModal && (
+        <NuevoEventoForm
+          onClose={() => setShowNuevoEventoModal(false)}
+          onSuccess={() => {
+            setShowNuevoEventoModal(false)
+          }}
+          expedientes={expedientes}
+          clientes={clientes}
+        />
+      )}
     </div>
   )
 }

@@ -16,12 +16,27 @@ export default async function CalendarioPage() {
   const startOfCurrentMonth = startOfMonth(today)
   const endOfCurrentMonth = endOfMonth(today)
 
+  // Obtener estudio del usuario
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    select: { estudio: { select: { id: true } } }
+  })
+
+  if (!user || !user.estudio) {
+    redirect('/auth/signin')
+  }
+
+  const estudioId = user.estudio.id
+
   // Obtener audiencias del mes actual
   const audiencias = await prisma.audiencia.findMany({
     where: {
       fecha: {
         gte: startOfCurrentMonth,
         lte: endOfCurrentMonth,
+      },
+      expediente: {
+        estudioId
       }
     },
     include: {
@@ -29,8 +44,7 @@ export default async function CalendarioPage() {
         include: {
           cliente: {
             select: {
-              nombre: true,
-              apellido: true,
+              razonSocial: true,
             }
           }
         }
@@ -50,6 +64,9 @@ export default async function CalendarioPage() {
       },
       estado: {
         not: 'COMPLETADA'
+      },
+      expediente: {
+        estudioId
       }
     },
     include: {
@@ -57,8 +74,7 @@ export default async function CalendarioPage() {
         include: {
           cliente: {
             select: {
-              nombre: true,
-              apellido: true,
+              razonSocial: true,
             }
           }
         }
@@ -69,6 +85,65 @@ export default async function CalendarioPage() {
       fechaVencimiento: 'asc'
     },
     take: 20
+  })
+
+  // Obtener eventos del mes actual
+  const eventos = await prisma.evento.findMany({
+    where: {
+      fecha: {
+        gte: startOfCurrentMonth,
+        lte: endOfCurrentMonth,
+      },
+      OR: [
+        { expediente: { estudioId } },
+        { cliente: { estudioId } },
+        { AND: [{ expedienteId: null }, { clienteId: null }] }
+      ]
+    },
+    include: {
+      expediente: {
+        select: {
+          id: true,
+          numero: true,
+          caratula: true
+        }
+      },
+      cliente: {
+        select: {
+          id: true,
+          razonSocial: true
+        }
+      }
+    },
+    orderBy: {
+      fecha: 'asc'
+    }
+  })
+
+  // Obtener expedientes para el selector
+  const expedientes = await prisma.expediente.findMany({
+    where: { estudioId },
+    select: {
+      id: true,
+      numero: true,
+      caratula: true
+    },
+    orderBy: {
+      numero: 'desc'
+    },
+    take: 100
+  })
+
+  // Obtener clientes para el selector
+  const clientes = await prisma.cliente.findMany({
+    where: { estudioId },
+    select: {
+      id: true,
+      razonSocial: true
+    },
+    orderBy: {
+      razonSocial: 'asc'
+    }
   })
 
   return (
@@ -83,6 +158,9 @@ export default async function CalendarioPage() {
       <CalendarioView 
         audiencias={audiencias}
         tareas={tareasProximas}
+        eventos={eventos}
+        expedientes={expedientes}
+        clientes={clientes}
         session={session}
       />
     </div>

@@ -15,13 +15,13 @@ export default async function NuevoExpedientePage() {
   const [clientes, usuarios] = await Promise.all([
     prisma.cliente.findMany({
       orderBy: {
-        apellido: 'asc'
+        razonSocial: 'asc'
       }
     }),
     prisma.user.findMany({
       where: {
         role: {
-          in: ['ABOGADO', 'SOCIO']
+          in: ['ABOGADO', 'DUENO'] // DUENO es el rol para socios/dueños del estudio
         }
       },
       orderBy: {

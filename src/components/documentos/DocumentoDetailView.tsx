@@ -418,7 +418,7 @@ export default function DocumentoDetailView({
                   className="block hover:bg-gray-50 p-2 rounded border"
                 >
                   <div className="font-medium text-gray-900">
-                    {documento.expediente.cliente.nombre} {documento.expediente.cliente.apellido}
+                    {documento.expediente.cliente.razonSocial}
                   </div>
                   <div className="text-sm text-gray-500">{documento.expediente.cliente.email}</div>
                   {documento.expediente.cliente.telefono && (

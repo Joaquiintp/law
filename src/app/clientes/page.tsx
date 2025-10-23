@@ -37,7 +37,7 @@ export default async function ClientesPage() {
       }
     },
     orderBy: {
-      apellido: 'asc'
+      razonSocial: 'asc'
     }
   })
 

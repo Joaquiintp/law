@@ -31,7 +31,7 @@ export default async function EditClientePage({ params }: EditClientePageProps) 
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Editar Cliente</h1>
           <p className="text-muted-foreground">
-            Modifica la información de {cliente.nombre} {cliente.apellido}
+            Modifica la información de {cliente.razonSocial}
           </p>
         </div>
         

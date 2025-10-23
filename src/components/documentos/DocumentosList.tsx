@@ -41,8 +41,7 @@ interface Documento {
     numero: string
     caratula: string
     cliente: {
-      nombre: string
-      apellido: string
+      razonSocial: string
     }
   }
   creador: {
@@ -56,8 +55,7 @@ interface Expediente {
   numero: string
   caratula: string
   cliente: {
-    nombre: string
-    apellido: string
+    razonSocial: string
   }
 }
 
@@ -217,7 +215,7 @@ export default function DocumentosList({
               <option value="">Todos los expedientes</option>
               {expedientes.map((exp) => (
                 <option key={exp.id} value={exp.id}>
-                  {exp.numero} - {exp.cliente.nombre} {exp.cliente.apellido}
+                  {exp.numero} - {exp.cliente.razonSocial}
                 </option>
               ))}
             </select>
@@ -327,7 +325,7 @@ export default function DocumentosList({
                         </Link>
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-1" />
-                          {documento.expediente.cliente.nombre} {documento.expediente.cliente.apellido}
+                          {documento.expediente.cliente.razonSocial}
                         </div>
                       </div>
                       

@@ -32,8 +32,7 @@ interface AudienciaFormProps {
     numero: string
     caratula: string
     cliente: {
-      nombre: string
-      apellido: string
+      razonSocial: string
     }
   }>
   session: any
@@ -144,7 +143,7 @@ export default function AudienciaForm({ expedientes, session }: AudienciaFormPro
               <option value="">Seleccione un expediente...</option>
               {expedientes.map((expediente) => (
                 <option key={expediente.id} value={expediente.id}>
-                  {expediente.numero} - {expediente.cliente.nombre} {expediente.cliente.apellido}
+                  {expediente.numero} - {expediente.cliente.razonSocial}
                 </option>
               ))}
             </select>
@@ -159,7 +158,7 @@ export default function AudienciaForm({ expedientes, session }: AudienciaFormPro
                 <div className="font-medium text-blue-900">{expedienteInfo.numero}</div>
                 <div className="text-blue-700">{expedienteInfo.caratula}</div>
                 <div className="text-blue-600">
-                  Cliente: {expedienteInfo.cliente.nombre} {expedienteInfo.cliente.apellido}
+                  Cliente: {expedienteInfo.cliente.razonSocial}
                 </div>
               </div>
             </div>

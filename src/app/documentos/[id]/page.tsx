@@ -14,8 +14,8 @@ async function getDocumento(id: string) {
           cliente: {
             select: {
               id: true,
-              nombre: true,
-              apellido: true,
+              razonSocial: true,
+              
               email: true,
               telefono: true
             }

@@ -93,7 +93,7 @@ export default function AnalizadorDocumentos({ documentos, historial, userId }: 
   // Filtrar documentos
   const documentosFiltrados = documentos.filter(doc => {
     const cumpleBusqueda = doc.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-                          doc.expediente.cliente.nombre.toLowerCase().includes(busqueda.toLowerCase())
+                          doc.expediente.cliente.razonSocial.toLowerCase().includes(busqueda.toLowerCase())
     const cumpleTipo = !filtroTipo || doc.tipoDocumento === filtroTipo
     return cumpleBusqueda && cumpleTipo
   })

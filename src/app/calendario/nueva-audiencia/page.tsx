@@ -19,8 +19,7 @@ export default async function NuevaAudienciaPage() {
     include: {
       cliente: {
         select: {
-          nombre: true,
-          apellido: true,
+          razonSocial: true,
         }
       }
     },

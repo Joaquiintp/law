@@ -17,12 +17,30 @@
 - `PATCH /api/usuarios/:id/toggle-active` - Activar/desactivar usuario
 - `PATCH /api/usuarios/:id/change-password` - Cambiar contraseña
 
-## 🤖 IA Legal (Módulo Premium)
-- `POST /api/ia-legal/activate` - Activar módulo IA para un estudio (solo ADMIN)
-- `PUT /api/ia-legal/:estudioId/config` - Actualizar configuración de IA
-- `GET /api/ia-legal/:estudioId/status` - Verificar estado de activación
-- `GET /api/ia-legal/:estudioId/usage` - Obtener uso de consultas del mes
-- `POST /api/ia-legal/consulta` - Realizar consulta al asistente IA (verifica límites)
+## 🤖 IA Legal (Módulo Premium) - FASE 2 COMPLETADA ✅
+
+### Endpoints Core (Implementados)
+- ✅ `POST /api/ia-legal/resumir` - Resumir documentos legales (PDF/DOCX/TXT)
+- ✅ `POST /api/ia-legal/clasificar` - Clasificar expedientes automáticamente
+- ✅ `POST /api/ia-legal/generar-escrito` - Generar escritos judiciales con IA
+- ✅ `POST /api/ia-legal/buscar-jurisprudencia` - Buscar y analizar jurisprudencia
+
+### Componentes UI (Implementados - 100% Completados)
+- ✅ `IALegalDashboard` - Dashboard unificado estilo ChatGPT con 5 tabs
+- ✅ `ResumidorDocumentos` - Subida y análisis de documentos (integrado)
+- ✅ `ClasificadorExpedientes` - Clasificación automática con badges (componente creado)
+- ✅ `GeneradorEscritos` - Generación de escritos judiciales (integrado)
+- ✅ `BuscadorJurisprudencia` - Búsqueda inteligente de normas y jurisprudencia (integrado)
+
+### Página Principal
+- ✅ `/app/ia-legal/page.tsx` - Con verificación de acceso y cuotas
+
+### Fase 3 (Planificada)
+- ⏳ `POST /api/ia-legal/analizar-riesgo` - Análisis de riesgo de casos
+- ⏳ `POST /api/ia-legal/activate` - Activar módulo IA para un estudio (solo ADMIN)
+- ⏳ `PUT /api/ia-legal/:estudioId/config` - Actualizar configuración de IA
+- ⏳ `GET /api/ia-legal/:estudioId/status` - Verificar estado de activación
+- ⏳ `GET /api/ia-legal/:estudioId/usage` - Obtener uso de consultas del mes
 
 ## 📄 Expedientes
 - `POST /api/expedientes` - Crear expediente (con estudioId del usuario)
