@@ -126,6 +126,7 @@ model User {
   tareasAsignadas         Tarea[]
   actividades             ActividadLog[]
   consultasIA             ConsultaIA[]
+  notasExpedientes        NotaExpediente[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -251,6 +252,7 @@ model Expediente {
   honorarios        Honorario[]
   consultasIA       ConsultaIA[]
   eventos           Evento[]
+  notas             NotaExpediente[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -280,6 +282,7 @@ model Documento {
   creadorId       String
   creador         User @relation(fields: [creadorId], references: [id])
   consultasIA     ConsultaIA[]
+  notasReferenciadas NotaExpediente[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -331,6 +334,7 @@ model Tarea {
   expediente    Expediente @relation(fields: [expedienteId], references: [id])
   asignadoId    String
   asignado      User @relation(fields: [asignadoId], references: [id])
+  notasReferenciadas NotaExpediente[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -680,3 +684,34 @@ model LogIA {
   @@index([createdAt])
   @@index([accion])
 }
+
+// Modelo para Notas Colaborativas en Expedientes (Cuaderno de Notas)
+model NotaExpediente {
+  id          String   @id @default(cuid())
+  
+  // Contenido
+  texto       String
+  editado     Boolean  @default(false)
+  
+  // Relaciones
+  expedienteId String
+  expediente   Expediente @relation(fields: [expedienteId], references: [id], onDelete: Cascade)
+  
+  autorId     String
+  autor       User     @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  
+  // Referencias opcionales
+  archivoReferenciadoId String?
+  archivoReferenciado   Documento? @relation(fields: [archivoReferenciadoId], references: [id], onDelete: SetNull)
+  
+  tareaReferenciadaId  String?
+  tareaReferenciada    Tarea? @relation(fields: [tareaReferenciadaId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([expedienteId])
+  @@index([autorId])
+  @@index([createdAt])
+}
+

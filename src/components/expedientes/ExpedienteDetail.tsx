@@ -36,6 +36,7 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import TareasExpedienteView from './TareasExpedienteView'
 import SelectorCarpetas from '../documentos/SelectorCarpetas'
+import CuadernoNotasButton from './CuadernoNotasButton'
 
 interface Carpeta {
   id: string
@@ -844,6 +845,9 @@ export default function ExpedienteDetail({ expediente }: ExpedienteDetailProps) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Botón flotante del Cuaderno de Notas */}
+      <CuadernoNotasButton expedienteId={expediente.id} />
       </div>
     </div>
   )

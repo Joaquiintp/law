@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -173,22 +174,55 @@ export default function TareasExpedienteView({
   // Estado para editar tarea
   const [tareaEditando, setTareaEditando] = useState<Partial<Tarea>>({})
   
-  // Usuario actual (simulado - en producción vendría de la sesión)
-  const usuarioActual = { id: 'user-1', nombre: 'Juan Pérez' }
+  // Obtener sesión del usuario actual
+  const { data: session } = useSession()
+  const usuarioActual = session?.user ? {
+    id: session.user.id || '',
+    nombre: session.user.name || 'Usuario',
+    email: session.user.email || ''
+  } : null
   
-  // Usuarios disponibles del estudio (simulados - en producción vendrían de la API /api/usuarios?activos=true)
-  // IMPORTANTE: Solo se incluyen miembros del STAFF (ABOGADO, SECRETARIO, PASANTE, etc.)
-  // NO se incluyen CLIENTES ya que las tareas son responsabilidad del equipo legal interno
-  // NO se incluyen usuarios con rol DUENO ya que su nombre será el del estudio
-  const usuariosDisponibles = [
-    { id: 'user-1', nombre: 'Juan Pérez', rol: 'ABOGADO' },
-    { id: 'user-2', nombre: 'María González', rol: 'ABOGADO' },
-    { id: 'user-3', nombre: 'Carlos Rodríguez', rol: 'ABOGADO' },
-    { id: 'user-4', nombre: 'Ana Martínez', rol: 'SECRETARIO' },
-    { id: 'user-5', nombre: 'Luis Fernández', rol: 'SECRETARIO' },
-  ]
+  // Usuarios del estudio obtenidos desde la API
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState<Array<{ id: string, nombre: string, rol: string }>>([])
+  const [loadingUsuarios, setLoadingUsuarios] = useState(true)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Cargar usuarios del estudio
+  useEffect(() => {
+    const cargarUsuarios = async () => {
+      try {
+        setLoadingUsuarios(true)
+        console.log('🔍 Cargando usuarios del estudio...')
+        
+        // Obtener solo usuarios activos del staff (ABOGADO, SECRETARIO, ADMIN)
+        const response = await fetch('/api/usuarios?activos=true&roles=ADMIN,ABOGADO,SECRETARIO')
+        
+        if (!response.ok) {
+          console.error('❌ Error al cargar usuarios:', response.status)
+          return
+        }
+        
+        const data = await response.json()
+        console.log('✅ Usuarios cargados:', data.usuarios.length)
+        
+        // Mapear usuarios al formato esperado
+        const usuarios = data.usuarios.map((u: any) => ({
+          id: u.id,
+          nombre: u.name,
+          rol: u.role
+        }))
+        
+        setUsuariosDisponibles(usuarios)
+      } catch (error) {
+        console.error('❌ Error al cargar usuarios:', error)
+      } finally {
+        setLoadingUsuarios(false)
+      }
+    }
+    
+    cargarUsuarios()
+  }, [])
 
   // Cargar tareas desde la API
   useEffect(() => {
@@ -530,7 +564,7 @@ export default function TareasExpedienteView({
   }
 
   const handleGuardarArchivos = () => {
-    if (!selectedTarea) return
+    if (!selectedTarea || !usuarioActual) return
 
     const carpetaNombre = carpetas.find(c => c.id === carpetaSeleccionada)?.nombre
 
@@ -591,7 +625,7 @@ export default function TareasExpedienteView({
 
   // Funciones para observaciones
   const handleAgregarObservacion = () => {
-    if (!selectedTarea || !nuevaObservacion.trim()) return
+    if (!selectedTarea || !nuevaObservacion.trim() || !usuarioActual) return
 
     const nuevaObs: Observacion = {
       id: Date.now().toString(),
@@ -612,7 +646,7 @@ export default function TareasExpedienteView({
   }
 
   const handleEditarObservacion = (obsId: string) => {
-    if (!selectedTarea) return
+    if (!selectedTarea || !usuarioActual) return
     const obs = selectedTarea.observacionesDetalladas?.find(o => o.id === obsId)
     if (obs && obs.autorId === usuarioActual.id) {
       setEditandoObservacion(obsId)
@@ -638,7 +672,7 @@ export default function TareasExpedienteView({
   }
 
   const handleEliminarObservacion = (obsId: string) => {
-    if (!selectedTarea) return
+    if (!selectedTarea || !usuarioActual) return
     const obs = selectedTarea.observacionesDetalladas?.find(o => o.id === obsId)
     if (obs && obs.autorId === usuarioActual.id) {
       const tareaActualizada: Tarea = {
@@ -811,13 +845,26 @@ export default function TareasExpedienteView({
       </div>
 
       {/* Observaciones - Permite múltiples líneas con indicador */}
-      <div className="col-span-2 flex items-start pt-1">
-        {tarea.observaciones ? (
-          <p className="text-sm text-gray-500 leading-tight line-clamp-3" title={tarea.observaciones}>
-            {tarea.observaciones}
-          </p>
-        ) : (
-          <span className="text-sm text-gray-400">-</span>
+      <div className="col-span-2 flex items-start pt-1 gap-2">
+        <div className="flex-1">
+          {tarea.observaciones ? (
+            <p className="text-sm text-gray-500 leading-tight line-clamp-3" title={tarea.observaciones}>
+              {tarea.observaciones}
+            </p>
+          ) : (
+            <span className="text-sm text-gray-400">-</span>
+          )}
+        </div>
+        
+        {/* Indicador de múltiples observaciones */}
+        {tarea.observacionesDetalladas && tarea.observacionesDetalladas.length > 0 && (
+          <Badge 
+            variant="secondary" 
+            className="flex-shrink-0 h-5 px-1.5 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200"
+            title={`${(tarea.observaciones ? 1 : 0) + tarea.observacionesDetalladas.length} observaciones en total`}
+          >
+            +{tarea.observacionesDetalladas.length}
+          </Badge>
         )}
       </div>
     </div>
@@ -1362,7 +1409,7 @@ export default function TareasExpedienteView({
         tipo={tipoTareaDialog}
         onSubmit={handleAgregarTarea}
         usuariosDisponibles={usuariosDisponibles}
-        usuarioActual={usuarioActual}
+        usuarioActual={usuarioActual || undefined}
       />
 
       {/* Dialog de Detalle de Tarea */}
@@ -1465,7 +1512,7 @@ export default function TareasExpedienteView({
                                       </div>
                                     </div>
                                     
-                                    {obs.autorId === usuarioActual.id && (
+                                    {usuarioActual && obs.autorId === usuarioActual.id && (
                                       <div className="flex gap-1">
                                         <Button 
                                           variant="ghost" 

@@ -155,12 +155,36 @@ export async function POST(request: NextRequest) {
     // Verificar que el usuario asignado pertenece al estudio
     const usuarioAsignado = await prisma.user.findUnique({
       where: { id: asignadoId },
-      select: { estudioId: true }
+      select: { 
+        id: true,
+        name: true,
+        estudioId: true 
+      }
     })
 
+    // Log de debug
+    console.log('🔍 DEBUG - Usuario que crea la tarea:', {
+      id: user.id,
+      estudioId: user.estudio.id
+    })
+    console.log('🔍 DEBUG - Usuario asignado:', usuarioAsignado)
+
     if (!usuarioAsignado || usuarioAsignado.estudioId !== user.estudio.id) {
+      console.error('❌ Validación de estudio falló:', {
+        usuarioAsignadoEstudioId: usuarioAsignado?.estudioId,
+        usuarioCreadorEstudioId: user.estudio.id,
+        match: usuarioAsignado?.estudioId === user.estudio.id
+      })
+      
       return NextResponse.json(
-        { error: 'Usuario asignado no encontrado o no pertenece al estudio' },
+        { 
+          error: 'Usuario asignado no encontrado o no pertenece al estudio',
+          debug: {
+            usuarioAsignado: usuarioAsignado?.name,
+            estudioAsignado: usuarioAsignado?.estudioId,
+            estudioCreador: user.estudio.id
+          }
+        },
         { status: 404 }
       )
     }
